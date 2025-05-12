@@ -199,7 +199,8 @@ def home():
     """Home page with statistics"""
     stats = {
         'total_users': 0,
-        'total_timers': 0
+        'total_timers': 0,
+        'total_tasks': 0
     }
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -208,6 +209,8 @@ def home():
         stats['total_users'] = cursor.fetchone()[0]
         cursor.execute("SELECT COUNT(*) FROM timers")
         stats['total_timers'] = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM flow_shelf")
+        stats['total_tasks'] = cursor.fetchone()[0]
         conn.close()
     except sqlite3.Error as e:
         logger.error("Error fetching stats: %s", str(e))
