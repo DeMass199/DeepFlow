@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepflow - Your Personal Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        .navbar {
+            background: #007BFF;
+            color: #fff;
+            padding: 15px 0;
+        }
+        .navbar .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            margin-left: 15px;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        .nav-links .btn-outline {
+            border: 1px solid #fff;
+        }
+        .nav-links .btn-primary {
+            background: #0056b3;
+        }
+        .nav-links a:hover {
+            opacity: 0.9;
+        }
+        .hero {
+            background: #f4f4f4;
+            padding: 50px 0;
+            text-align: center;
+        }
+        .hero-content h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+        .hero-content p {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        .hero-content .btn {
+            padding: 15px 30px;
+            font-size: 1rem;
+            border-radius: 5px;
+        }
+        .features {
+            padding: 50px 0;
+            background: #fff;
+        }
+        .features h2 {
+            font-size: 2rem;
+            margin-bottom: 30px;
+        }
+        .feature-card {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        .stats {
+            background: #007BFF;
+            color: #fff;
+            padding: 50px 0;
+        }
+        .stats-grid {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+        }
+        .stat-card {
+            text-align: center;
+        }
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        footer {
+            background: #333;
+            color: #fff;
+            padding: 20px 0;
+            text-align: center;
+        }
+        footer p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Deepflow</h1>
+            <div class="nav-links">
+                <a href="{{ url_for('privacy_public') }}">Privacy Policy</a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
+                <a href="{{ url_for('signup') }}" class="btn btn-primary">Sign Up</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Manage Your Tasks with Ease</h1>
+                <p>Stay organized, meet deadlines, and boost your productivity with Deepflow.</p>
+                <a href="{{ url_for('signup') }}" class="btn btn-large btn-primary">Get Started - It's Free!</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="features">
+        <div class="container">
+            <h2>Why Choose Deepflow?</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⏳</div>
+                    <h3>Custom Long Focus Sessions</h3>
+                    <p>Timer designed for long uninterrupted sessions with optional soft check-ins.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Recovery Tracker: “Re-Entry Mode”</h3>
+                    <p>Gentle tools to help you re-enter focus after breaks or session ends.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Energy Log</h3>
+                    <p>Track your energy levels before, during, and after sessions to find patterns.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎵</div>
+                    <h3>Flow Music or Sound Options</h3>
+                    <p>Play curated soundtracks to maintain a consistent focus environment.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>“Flow Shelf” – Task Queue for Later</h3>
+                    <p>Quickly add distracting thoughts to a shelf to stay focused without losing ideas.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>{{ stats.total_users }}</h3>
+                    <p>Active Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3>{{ stats.total_tasks }}</h3>
+                    <p>Tasks Managed</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Deepflow. All rights reserved. | <a href="{{ url_for('privacy_public') }}" style="color: #007BFF; text-decoration: none;">Privacy Policy</a></p>
+        </div>
+    </footer>
+</body>
+</html>

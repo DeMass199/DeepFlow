@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Deepflow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .back-button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            display: inline-block;
+            border-radius: 4px;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+        h1 {
+            margin-top: 0;
+        }
+        h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 30px;
+            color: #2c3e50;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .emphasize {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin: 15px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .accessibility-controls {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .font-selector, .contrast-selector {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .high-contrast {
+            background-color: #000 !important;
+            color: #fff !important;
+        }
+        .high-contrast h1, .high-contrast h2, .high-contrast a {
+            color: #ffff00 !important;
+        }
+        .high-contrast .header {
+            background-color: #000 !important;
+        }
+        .dyslexic-font {
+            font-family: 'OpenDyslexic', Arial, sans-serif !important;
+        }
+        @font-face {
+            font-family: 'OpenDyslexic';
+            src: url('{{ url_for("static", filename="fonts/OpenDyslexic-Regular.otf") }}') format('opentype');
+        }
+    </style>
+</head>
+<body id="body-element">
+    <div class="header">
+        <h1>DeepFlow Privacy Policy</h1>
+        <p>Last Updated: {{ current_date }}</p>
+    </div>
+    <div class="container">
+        <div class="accessibility-controls">
+            <div class="font-selector">
+                <label for="font-select"><i class="fas fa-font"></i> Font:</label>
+                <select id="font-select" onchange="changeFont(this.value)">
+                    <option value="default">Default Font</option>
+                    <option value="dyslexic">OpenDyslexic (Dyslexia-friendly)</option>
+                </select>
+            </div>
+            <div class="contrast-selector">
+                <label for="contrast-toggle"><i class="fas fa-adjust"></i> High Contrast:</label>
+                <input type="checkbox" id="contrast-toggle" onchange="toggleContrast(this.checked)">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Introduction</h2>
+            <p>Welcome to DeepFlow's Privacy Policy. This policy describes how we collect, use, and protect your personal information as you use our application designed to support neurodivergent users, especially those with ADHD, in managing focus sessions and tracking energy levels.</p>
+            <p>We understand that your privacy and the security of your personal information is of utmost importance, which is why we've designed our privacy practices to comply with the Australian Privacy Act and the Australian Privacy Principles (APPs).</p>
+        </div>
+
+        <div class="section">
+            <h2>Information We Collect</h2>
+            <p>DeepFlow collects the following types of information:</p>
+            <ul>
+                <li><strong>Account Information:</strong> Username and securely hashed password</li>
+                <li><strong>Focus Session Data:</strong> Timer durations, start and end times</li>
+                <li><strong>Energy Levels:</strong> Self-reported energy ratings before and after focus sessions</li>
+                <li><strong>Flow Shelf Items:</strong> Task notes and ideas you add during focus sessions</li>
+            </ul>
+            <p class="emphasize">We do NOT collect your real name, email address, location data, or any other identifying information beyond your chosen username.</p>
+        </div>
+
+        <div class="section">
+            <h2>How We Use Your Information</h2>
+            <p>The information we collect is used solely to:</p>
+            <ul>
+                <li>Provide and improve the DeepFlow application functionality</li>
+                <li>Analyze patterns in your focus sessions and energy levels to help you identify optimal working times</li>
+                <li>Maintain the security of your account</li>
+            </ul>
+            <p>Your data is only processed for these explicit purposes and is not shared with third parties or used for marketing purposes.</p>
+        </div>
+
+        <div class="section">
+            <h2>Data Security</h2>
+            <p>We implement appropriate security measures to protect your data, including:</p>
+            <ul>
+                <li>Password hashing using industry-standard techniques</li>
+                <li>Secure authentication and session management</li>
+                <li>Regular security reviews of our codebase</li>
+                <li>Data access controls that ensure you only have access to your own information</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Your Data Rights</h2>
+            <p>Under the Privacy Act and the Australian Privacy Principles, you have the right to:</p>
+            <ul>
+                <li><strong>Access:</strong> View all data we hold about you</li>
+                <li><strong>Export:</strong> <a href="{{ url_for('export_user_data') }}">Download your data</a> in a portable format</li>
+                <li><strong>Delete:</strong> <a href="{{ url_for('delete_account') }}">Delete your account</a> and all associated data</li>
+                <li><strong>Correct:</strong> Update any inaccurate information in your account</li>
+            </ul>
+            <p>To exercise any of these rights, please use the corresponding functions linked above or contact us directly.</p>
+        </div>
+
+        <div class="section">
+            <h2>Data Breach Notification</h2>
+            <p>In accordance with the Notifiable Data Breaches (NDB) scheme under the Privacy Act, we will:</p>
+            <ul>
+                <li>Notify you promptly if a data breach occurs that is likely to result in serious harm</li>
+                <li>Provide details about what information was affected</li>
+                <li>Advise you on steps to take to protect yourself from potential harm</li>
+                <li>Report eligible breaches to the Office of the Australian Information Commissioner (OAIC)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Accessibility Commitment</h2>
+            <p>DeepFlow is designed with neurodivergent users in mind. We are committed to providing an accessible experience for all users, in alignment with the Disability Discrimination Act 1992 and <a href="https://www.w3.org/WAI/standards-guidelines/wcag/">Web Content Accessibility Guidelines (WCAG)</a>.</p>
+            <p>Our accessibility features include:</p>
+            <ul>
+                <li>OpenDyslexic font support for improved readability</li>
+                <li>High contrast mode for visual accessibility</li>
+                <li>Focus-friendly interface designed for ADHD users</li>
+                <li>Non-disruptive notifications and controls</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Changes to This Policy</h2>
+            <p>We may update this privacy policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. We will notify you of any material changes through the application.</p>
+        </div>
+
+        <div class="section">
+            <h2>Contact Us</h2>
+            <p>If you have any questions or concerns about this privacy policy or our data practices, please contact us at privacy@deepflow.example.com.</p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2025 DeepFlow. All rights reserved.</p>
+        </div>
+
+        <a href="{{ url_for('dashboard') }}" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <script>
+        function changeFont(fontType) {
+            const bodyElement = document.getElementById('body-element');
+            if (fontType === 'dyslexic') {
+                bodyElement.classList.add('dyslexic-font');
+            } else {
+                bodyElement.classList.remove('dyslexic-font');
+            }
+            // Save preference to localStorage
+            localStorage.setItem('deepflow_font_preference', fontType);
+        }
+
+        function toggleContrast(isHighContrast) {
+            const bodyElement = document.getElementById('body-element');
+            if (isHighContrast) {
+                bodyElement.classList.add('high-contrast');
+            } else {
+                bodyElement.classList.remove('high-contrast');
+            }
+            // Save preference to localStorage
+            localStorage.setItem('deepflow_contrast_preference', isHighContrast ? 'high' : 'normal');
+        }
+
+        // Load saved preferences on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedFont = localStorage.getItem('deepflow_font_preference');
+            if (savedFont) {
+                document.getElementById('font-select').value = savedFont;
+                changeFont(savedFont);
+            }
+            
+            const savedContrast = localStorage.getItem('deepflow_contrast_preference');
+            if (savedContrast === 'high') {
+                document.getElementById('contrast-toggle').checked = true;
+                toggleContrast(true);
+            }
+        });
+    </script>
+</body>
+</html>
