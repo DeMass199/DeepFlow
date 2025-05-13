@@ -160,6 +160,9 @@
         .stat-card h3 {
             font-size: 2rem;
             margin-bottom: 10px;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
         }
         footer {
             background: #333;
@@ -178,7 +181,6 @@
         <div class="container">
             <h1 class="logo">Deepflow</h1>
             <div class="nav-links">
-                <a href="{{ url_for('privacy_public') }}">Privacy Policy</a>
                 <a href="{{ url_for('login') }}" class="btn btn-outline" style="margin-left: 20px;">Login</a>
                 <a href="{{ url_for('signup') }}" class="btn btn-primary" style="margin-left: 15px;">Sign Up</a>
             </div>
@@ -230,13 +232,14 @@
 
     <section class="stats">
         <div class="container">
+            <!-- Debug: {{ stats }} -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <h3>{{ stats.total_users }}</h3>
+                    <h3 style="display: inline-block; padding: 5px 15px; background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; color: #00BFFF; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">{{ stats.total_users }}</h3>
                     <p>Active Users</p>
                 </div>
                 <div class="stat-card">
-                    <h3>{{ stats.total_tasks }}</h3>
+                    <h3 style="display: inline-block; padding: 5px 15px; background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; color: #00BFFF; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">{{ stats.total_tasks }}</h3>
                     <p>Tasks Managed</p>
                 </div>
             </div>
@@ -245,7 +248,10 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2025 Deepflow. All rights reserved. | <a href="{{ url_for('privacy_public') }}" style="color: #007BFF; text-decoration: none;">Privacy Policy</a></p>
+            <p>&copy; 2025 Deepflow. All rights reserved.</p>
+            <p style="margin-top: 10px;">
+                <a href="{{ url_for('privacy_public') }}" style="color: #007BFF; text-decoration: none; padding: 5px 10px; border: 1px solid #007BFF; border-radius: 4px; display: inline-block; margin-top: 5px;">Privacy Policy</a>
+            </p>
         </div>
     </footer>
 </body>
