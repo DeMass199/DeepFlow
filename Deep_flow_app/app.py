@@ -380,7 +380,7 @@ def update_timer(timer_id):
         data = request.get_json()
         action = data.get("action")
     else:
-        action = request.form.get("action")  # 'start' or 'stop'
+        action = request.form.get("action")  # 'start', 'pause', or 'stop'
     
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -392,6 +392,10 @@ def update_timer(timer_id):
                 SET is_running = 1, start_time = datetime('now')
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
+        elif action == "pause":
+            # For pause, we keep is_running as 1 but we'll handle the pause state in JS
+            # This ensures the timer still shows up as active in database
+            pass
         elif action == "stop":
             cursor.execute("""
                 UPDATE timers

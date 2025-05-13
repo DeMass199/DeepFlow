@@ -1,0 +1,162 @@
+/**
+ * Timer Button Styles
+ * 
+ * These styles enhance the visual presentation and accessibility of timer controls.
+ */
+
+/* Base Button Styles */
+.timer-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.timer-controls .btn {
+    transition: all 0.3s ease;
+    min-width: 95px;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.timer-controls .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.timer-controls .btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Colors */
+.btn-start {
+    background-color: #28a745;
+    border: none;
+}
+
+.btn-start:hover {
+    background-color: #218838;
+}
+
+.btn-pause {
+    background-color: #ffc107;
+    color: #212529;
+    border: none;
+}
+
+.btn-pause:hover {
+    background-color: #e0a800;
+}
+
+.btn-resume {
+    background-color: #17a2b8;
+    border: none;
+}
+
+.btn-resume:hover {
+    background-color: #138496;
+}
+
+.btn-stop {
+    background-color: #dc3545;
+    border: none;
+}
+
+.btn-stop:hover {
+    background-color: #c82333;
+}
+
+.btn-delete {
+    background-color: #6c757d;
+    border: none;
+}
+
+.btn-delete:hover {
+    background-color: #5a6268;
+}
+
+/* Button Icon Alignment */
+.timer-controls .btn i {
+    margin-right: 5px;
+}
+
+/* Button Animation */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+.timer-running .btn-pause {
+    animation: pulse 2s infinite;
+}
+
+/* Pause-Resume Button Animation */
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.timer-paused .btn-resume {
+    animation: blink 1.5s infinite;
+}
+
+/* Accessibility Enhancements */
+.timer-controls .btn:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Accessibility Enhancements */
+.timer-controls .btn:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Focus outlines adjust based on button type */
+.timer-controls .btn-start:focus {
+    outline-color: #28a745;
+}
+
+.timer-controls .btn-pause:focus {
+    outline-color: #ffc107;
+}
+
+.timer-controls .btn-resume:focus {
+    outline-color: #17a2b8;
+}
+
+.timer-controls .btn-stop:focus {
+    outline-color: #dc3545;
+}
+
+/* High-contrast mode adjustments */
+body.high-contrast .timer-controls .btn {
+    border: 2px solid #000;
+}
+
+body.high-contrast .btn-start {
+    background-color: #006400;
+}
+
+body.high-contrast .btn-pause {
+    background-color: #ffa500;
+    color: #000;
+}
+
+body.high-contrast .btn-resume {
+    background-color: #0000cd;
+}
+
+body.high-contrast .btn-stop {
+    background-color: #8b0000;
+}

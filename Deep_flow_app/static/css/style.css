@@ -131,6 +131,16 @@ body.high-contrast .btn-start {
     color: #ffffff !important;
 }
 
+body.high-contrast .btn-pause {
+    background-color: #ff9900 !important;
+    color: #ffffff !important;
+}
+
+body.high-contrast .btn-resume {
+    background-color: #17a2b8 !important;
+    color: #ffffff !important;
+}
+
 body.high-contrast .btn-stop {
     background-color: #aa0000 !important;
     color: #ffffff !important;

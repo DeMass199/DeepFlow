@@ -1,0 +1,42 @@
+/* Timer state styles */
+.timer-countdown {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 8px;
+    color: #333;
+}
+
+.timer-running .timer-countdown {
+    color: #28a745;
+}
+
+.timer-paused .timer-countdown {
+    color: #ffc107;
+    font-style: italic;
+}
+
+.timer-stopped .timer-countdown {
+    color: #dc3545;
+}
+
+/* Pulse animation for running timer */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.timer-running .timer-countdown {
+    animation: pulse 2s infinite;
+}
+
+/* Resume button highlight */
+.resume-timer-btn {
+    box-shadow: 0 0 5px rgba(23, 162, 184, 0.5);
+    transition: all 0.3s ease;
+}
+
+.resume-timer-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 8px rgba(23, 162, 184, 0.8);
+}

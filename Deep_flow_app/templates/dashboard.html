@@ -6,6 +6,9 @@
     <title>Dashboard - Deepflow</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/energy-log.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/energy-insights.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/timer.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/timer-buttons.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <!-- Add Chart.js for Energy Log visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -124,6 +127,10 @@
             background-color: #e6f7e6;
             border-left: 4px solid #28a745;
         }
+        .timer-paused {
+            background-color: #fcf8e3;
+            border-left: 4px solid #ffc107;
+        }
         .timer-stopped {
             background-color: #f7e6e6;
             border-left: 4px solid #dc3545;
@@ -148,6 +155,12 @@
         }
         .btn-start {
             background-color: #28a745;
+        }
+        .btn-pause {
+            background-color: #ffc107;
+        }
+        .btn-resume {
+            background-color: #17a2b8;
         }
         .btn-stop {
             background-color: #dc3545;
@@ -339,14 +352,19 @@
                                     {% endif %}
                                 </div>
                                 <div class="timer-controls">
-                                    {% if not timer[6] %}
-                                        <button type="button" class="btn btn-start start-timer-btn" data-timer-id="{{ timer[0] }}" data-duration="{{ timer[3] // 60 }}">
-                                            <i class="fas fa-play"></i> Start
-                                        </button>
-                                    {% else %}
-                                        <button type="button" class="btn btn-stop stop-timer-btn" data-timer-id="{{ timer[0] }}">
-                                            <i class="fas fa-stop"></i> Stop
-                                        </button>
+                                    <button type="button" class="btn btn-start start-timer-btn" data-timer-id="{{ timer[0] }}" data-duration="{{ timer[3] // 60 }}" style="display: {% if not timer[6] %}inline-flex{% else %}none{% endif %};">
+                                        <i class="fas fa-play"></i> Start
+                                    </button>
+                                    <button type="button" class="btn btn-pause pause-timer-btn" data-timer-id="{{ timer[0] }}" style="display: {% if timer[6] %}inline-flex{% else %}none{% endif %};">
+                                        <i class="fas fa-pause"></i> Pause
+                                    </button>
+                                    <button type="button" class="btn btn-resume resume-timer-btn" data-timer-id="{{ timer[0] }}" style="display: none;">
+                                        <i class="fas fa-play"></i> Resume
+                                    </button>
+                                    {% if timer[6] %}
+                                    <button type="button" class="btn btn-stop stop-timer-btn" data-timer-id="{{ timer[0] }}">
+                                        <i class="fas fa-stop"></i> Stop
+                                    </button>
                                     {% endif %}
                                     <form action="{{ url_for('delete_timer', timer_id=timer[0]) }}" method="post" 
                                           onsubmit="return confirm('Are you sure you want to delete this timer?');">
@@ -422,6 +440,40 @@
                     Energy levels will be tracked when you start and stop timers with energy tracking enabled.
                 </div>
             </div>
+
+            <!-- Energy Insights -->
+            <div class="energy-insights-container">
+                <div class="energy-insights-header">
+                    <i class="fas fa-lightbulb"></i>
+                    <h2>Energy Insights</h2>
+                </div>
+                <p>Personalized insights about your energy patterns and productivity based on your tracked data.</p>
+                
+                <div id="energy-insights-content">
+                    <!-- This will be populated by JavaScript -->
+                    <div class="empty-insights">
+                        <i class="fas fa-chart-bar"></i>
+                        <p>Track your energy levels with timers to see insights here.</p>
+                    </div>
+                </div>
+                
+                <div class="energy-trends">
+                    <div class="energy-trend-card">
+                        <div class="energy-trend-header">
+                            <i class="fas fa-sun energy-trend-icon"></i>
+                            <div class="energy-trend-title">Best Time of Day</div>
+                        </div>
+                        <div class="energy-trend-value" id="best-time-value">--</div>
+                    </div>
+                    <div class="energy-trend-card">
+                        <div class="energy-trend-header">
+                            <i class="fas fa-tasks energy-trend-icon"></i>
+                            <div class="energy-trend-title">Most Energizing Task</div>
+                        </div>
+                        <div class="energy-trend-value" id="best-task-value">--</div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
     
@@ -433,6 +485,7 @@
     
     <!-- DeepFlow JavaScript -->
     <script src="{{ url_for('static', filename='js/deepflow.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/timer-toggle.js') }}"></script>
     
     <!-- Accessibility Controls JavaScript -->
     <script>
