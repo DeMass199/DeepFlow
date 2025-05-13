@@ -156,16 +156,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 audioPlayer.currentTime = 0;
             }
             
-            // Show re-entry mode if enabled
-            const reEntryEnabled = document.getElementById('enable-reentry')?.checked;
-            if (reEntryEnabled) {
-                showReEntryMode(timerId);
-            }
-            
-            // Log ending energy if enabled
+            // Log ending energy if enabled (display this first)
             const energyLoggingEnabled = document.getElementById('enable-energy-log')?.checked;
             if (energyLoggingEnabled) {
+                // Show energy log first
                 showEnergyLogPrompt('end', timerId);
+                
+                // If re-entry is also enabled, we'll need to modify the energy log save behavior 
+                // to show the re-entry mode after energy log is saved
+                const reEntryEnabled = document.getElementById('enable-reentry')?.checked;
+                if (reEntryEnabled) {
+                    // Get the energy log save button and modify its behavior
+                    const energyModal = document.getElementById('energy-log-modal');
+                    if (energyModal) {
+                        const saveBtn = energyModal.querySelector('#log-energy-btn');
+                        if (saveBtn) {
+                            // Replace existing event listener by cloning the button
+                            const newSaveBtn = saveBtn.cloneNode(true);
+                            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+                            
+                            // Add new event listener to show re-entry mode after saving energy
+                            newSaveBtn.addEventListener('click', () => {
+                                const energyLevel = document.getElementById('energy-slider').value;
+                                saveEnergyLog(timerId, 'end', energyLevel);
+                                energyModal.style.display = 'none';
+                                
+                                // Now show the re-entry mode
+                                showReEntryMode(timerId);
+                            });
+                        }
+                    }
+                }
+            } else {
+                // If energy logging is not enabled, but re-entry is, show re-entry directly
+                const reEntryEnabled = document.getElementById('enable-reentry')?.checked;
+                if (reEntryEnabled) {
+                    showReEntryMode(timerId);
+                }
             }
             
             // Make AJAX request to update timer in database
@@ -199,16 +226,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 timer.classList.remove('timer-running');
                 timer.classList.add('timer-stopped');
                 
-                // Show re-entry mode if enabled
-                const reEntryEnabled = document.getElementById('enable-reentry')?.checked;
-                if (reEntryEnabled) {
-                    showReEntryMode(timerId);
-                }
-                
-                // Log ending energy if enabled
+                // Log ending energy if enabled (display this first)
                 const energyLoggingEnabled = document.getElementById('enable-energy-log')?.checked;
                 if (energyLoggingEnabled) {
+                    // Show energy log first
                     showEnergyLogPrompt('end', timerId);
+                    
+                    // If re-entry is also enabled, we'll need to modify the energy log save behavior 
+                    // to show the re-entry mode after energy log is saved
+                    const reEntryEnabled = document.getElementById('enable-reentry')?.checked;
+                    if (reEntryEnabled) {
+                        // Get the energy log save button and modify its behavior
+                        const energyModal = document.getElementById('energy-log-modal');
+                        if (energyModal) {
+                            const saveBtn = energyModal.querySelector('#log-energy-btn');
+                            if (saveBtn) {
+                                // Replace existing event listener by cloning the button
+                                const newSaveBtn = saveBtn.cloneNode(true);
+                                saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+                                
+                                // Add new event listener to show re-entry mode after saving energy
+                                newSaveBtn.addEventListener('click', () => {
+                                    const energyLevel = document.getElementById('energy-slider').value;
+                                    saveEnergyLog(timerId, 'end', energyLevel);
+                                    energyModal.style.display = 'none';
+                                    
+                                    // Now show the re-entry mode
+                                    showReEntryMode(timerId);
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    // If energy logging is not enabled, but re-entry is, show re-entry directly
+                    const reEntryEnabled = document.getElementById('enable-reentry')?.checked;
+                    if (reEntryEnabled) {
+                        showReEntryMode(timerId);
+                    }
                 }
                 
                 // Make AJAX request to update timer in database
@@ -483,6 +537,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (energyChartEl) {
             displayEnergyChart();
         }
+        
+        // Load energy logs from API if user is logged in
+        if (document.querySelector('.sidebar-nav')) { // Check if we're on a logged in page
+            fetchEnergyLogs();
+        }
     }
 
     function showEnergyLogPrompt(stage, timerId) {
@@ -496,7 +555,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="modal-content">
                     <span class="close">&times;</span>
                     <h3>How's your energy level?</h3>
+                    <p class="modal-description">This helps you track when you're most productive.</p>
                     <div class="energy-log">
+                        <div class="energy-emoji-selector">
+                            <div class="emoji-option" data-value="1">😴</div>
+                            <div class="emoji-option" data-value="3">😔</div>
+                            <div class="emoji-option" data-value="5">😐</div>
+                            <div class="emoji-option" data-value="7">😊</div>
+                            <div class="emoji-option" data-value="10">⚡</div>
+                        </div>
                         <input type="range" id="energy-slider" class="energy-slider" min="1" max="10" step="1" value="5">
                         <div class="slider-labels">
                             <span>🧠 Drained</span>
@@ -521,6 +588,41 @@ document.addEventListener('DOMContentLoaded', function() {
                     energyModal.style.display = 'none';
                 }
             });
+            
+            // Add event listeners to emoji options
+            energyModal.querySelectorAll('.emoji-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const value = this.getAttribute('data-value');
+                    document.getElementById('energy-slider').value = value;
+                    
+                    // Update active class
+                    energyModal.querySelectorAll('.emoji-option').forEach(opt => {
+                        opt.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                });
+            });
+            
+            // Add event listener for slider to update selected emoji
+            const slider = energyModal.querySelector('#energy-slider');
+            slider.addEventListener('input', function() {
+                updateSelectedEmoji(this.value);
+            });
+            
+            function updateSelectedEmoji(value) {
+                const val = parseInt(value);
+                const emojis = energyModal.querySelectorAll('.emoji-option');
+                emojis.forEach(emoji => {
+                    emoji.classList.remove('active');
+                });
+                
+                // Find closest emoji
+                if (val <= 2) emojis[0].classList.add('active');
+                else if (val <= 4) emojis[1].classList.add('active');
+                else if (val <= 6) emojis[2].classList.add('active');
+                else if (val <= 8) emojis[3].classList.add('active');
+                else emojis[4].classList.add('active');
+            }
         }
         
         // Update modal content based on stage
@@ -547,6 +649,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const slider = energyModal.querySelector('#energy-slider');
         slider.value = 5;
         
+        // Update the selected emoji for the default value
+        energyModal.querySelectorAll('.emoji-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        energyModal.querySelector('.emoji-option[data-value="5"]').classList.add('active');
+        
         // Show the modal
         energyModal.style.display = 'block';
     }
@@ -554,12 +662,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveEnergyLog(timerId, stage, energyLevel) {
         // Save to local storage for now
         const logs = JSON.parse(localStorage.getItem('energyLogs') || '[]');
-        logs.push({
+        
+        // Get the timer name
+        const timer = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+        const timerName = timer ? timer.querySelector('h3').textContent : 'Unknown Timer';
+        
+        const logEntry = {
             timerId: timerId,
+            timerName: timerName,
             stage: stage,
-            energyLevel: energyLevel,
+            energyLevel: parseInt(energyLevel),
             timestamp: new Date().toISOString()
-        });
+        };
+        
+        // Add to the beginning for chronological display
+        logs.unshift(logEntry);
+        
+        // Limit to last 30 entries to avoid localStorage overflow
+        if (logs.length > 30) logs.length = 30;
+        
         localStorage.setItem('energyLogs', JSON.stringify(logs));
         
         // Make AJAX request to save to database
@@ -573,17 +694,300 @@ document.addEventListener('DOMContentLoaded', function() {
                 stage: stage,
                 energy_level: energyLevel
             }),
+        }).then(response => {
+            if (response.ok) {
+                // Update the chart if we're on the dashboard
+                const energyChartEl = document.getElementById('energy-chart');
+                if (energyChartEl) {
+                    displayEnergyChart();
+                }
+            }
         });
     }
 
+    function fetchEnergyLogs() {
+        fetch('/get_energy_logs')
+            .then(response => response.json())
+            .then(data => {
+                if (data.logs) {
+                    // Store for chart display
+                    localStorage.setItem('serverEnergyLogs', JSON.stringify(data.logs));
+                    // Update chart if showing
+                    const energyChartEl = document.getElementById('energy-chart');
+                    if (energyChartEl) {
+                        displayEnergyChart();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching energy logs:', error);
+            });
+    }
+
     function displayEnergyChart() {
-        // This function would use a charting library like Chart.js
-        // For now, we'll just log that it would display the chart
-        console.log('Energy chart would be displayed here');
+        const energyChartEl = document.getElementById('energy-chart');
+        if (!energyChartEl) return;
         
-        // Placeholder for chart data
-        const logs = JSON.parse(localStorage.getItem('energyLogs') || '[]');
-        console.log('Energy logs:', logs);
+        // Try to get logs from server first, fall back to local storage
+        const serverLogs = JSON.parse(localStorage.getItem('serverEnergyLogs') || '[]');
+        const localLogs = JSON.parse(localStorage.getItem('energyLogs') || '[]');
+        
+        // Use server logs if available, otherwise use local logs
+        const logs = serverLogs.length > 0 ? serverLogs : localLogs;
+        
+        if (logs.length === 0) {
+            // No logs yet, show placeholder
+            const container = document.getElementById('energy-chart-container');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-chart-line"></i>
+                    <p>No energy data yet. Start tracking when you use timers.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Process data for display
+        const labels = [];
+        const datasets = [];
+        const startData = [];
+        const endData = [];
+        
+        // Group logs by date and timer
+        const dateGroups = {};
+        const timerGroups = {};
+
+        logs.forEach(log => {
+            try {
+                // Format for display
+                const date = new Date(log.timestamp || log.timestamp);
+                if (isNaN(date.getTime())) {
+                    console.error('Invalid timestamp found:', log.timestamp);
+                    return; // Skip this log entry
+                }
+                
+                const formattedDate = `${date.getMonth()+1}/${date.getDate()}`;
+                const time = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
+                const label = `${formattedDate} ${time}`;
+                
+                // Add to date groups
+                const day = `${date.getMonth()+1}/${date.getDate()}`;
+                if (!dateGroups[day]) {
+                    dateGroups[day] = {
+                        labels: [],
+                        start: [],
+                        end: []
+                    };
+                }
+                
+                dateGroups[day].labels.push(time);
+                if (log.stage === 'start') {
+                    dateGroups[day].start.push(log.energy_level || log.energyLevel);
+                } else {
+                    dateGroups[day].end.push(log.energy_level || log.energyLevel);
+                }
+                
+                // Add to timer groups
+                const timerName = log.timer_name || log.timerName || 'Unknown';
+                if (!timerGroups[timerName]) {
+                    timerGroups[timerName] = {
+                        start: [],
+                        end: []
+                    };
+                }
+                
+                if (log.stage === 'start') {
+                    timerGroups[timerName].start.push(log.energy_level || log.energyLevel);
+                } else {
+                    timerGroups[timerName].end.push(log.energy_level || log.energyLevel);
+                }
+            } catch (e) {
+                console.error('Error processing energy log:', e, log);
+            }
+        });
+        
+        // Create chart instance
+        if (window.energyChart) {
+            window.energyChart.destroy();
+        }
+        
+        // Find the most recent 5 days with data
+        const sortedDays = Object.keys(dateGroups).sort((a,b) => {
+            const [monthA, dayA] = a.split('/').map(Number);
+            const [monthB, dayB] = b.split('/').map(Number);
+            return (monthB - monthA) || (dayB - dayA);
+        }).slice(0, 5);
+        
+        // Create daily energy chart
+        window.energyChart = new Chart(energyChartEl, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Energy Before Session',
+                        data: sortedDays.map(day => {
+                            const values = dateGroups[day].start;
+                            return values.length > 0 ? 
+                                values.reduce((a,b) => a+b, 0) / values.length : null;
+                        }),
+                        borderColor: '#4287f5',
+                        backgroundColor: 'rgba(66, 135, 245, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Energy After Session',
+                        data: sortedDays.map(day => {
+                            const values = dateGroups[day].end;
+                            return values.length > 0 ? 
+                                values.reduce((a,b) => a+b, 0) / values.length : null;
+                        }),
+                        borderColor: '#f54242',
+                        backgroundColor: 'rgba(245, 66, 66, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.3
+                    }
+                ],
+                labels: sortedDays
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Energy Level (1-10)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => {
+                                if (!items.length) return '';
+                                const day = items[0].label;
+                                return `Energy Level - ${day}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Add insights summary
+        const container = document.getElementById('energy-chart-container');
+        let insightsEl = document.getElementById('energy-insights');
+        if (!insightsEl) {
+            insightsEl = document.createElement('div');
+            insightsEl.id = 'energy-insights';
+            insightsEl.style.marginTop = '20px';
+            insightsEl.style.fontSize = '0.9em';
+            container.appendChild(insightsEl);
+        }
+        
+        // Generate insights
+        let insights = '<h4>Energy Insights:</h4><ul>';
+        
+        // Find best performing tasks/times
+        const timerAverages = {};
+        Object.entries(timerGroups).forEach(([timer, data]) => {
+            const startAvg = data.start.length ? 
+                data.start.reduce((a,b) => a+b, 0) / data.start.length : 0;
+            const endAvg = data.end.length ? 
+                data.end.reduce((a,b) => a+b, 0) / data.end.length : 0;
+            const diff = endAvg - startAvg;
+            
+            timerAverages[timer] = {
+                startAvg,
+                endAvg,
+                diff
+            };
+        });
+        
+        // Find most energizing task
+        let bestTask = null;
+        let bestTaskDiff = -Infinity;
+        Object.entries(timerAverages).forEach(([timer, data]) => {
+            if (data.diff > bestTaskDiff) {
+                bestTask = timer;
+                bestTaskDiff = data.diff;
+            }
+        });
+        
+        if (bestTask && bestTaskDiff > 0) {
+            insights += `<li>"<strong>${bestTask}</strong>" sessions tend to increase your energy levels the most.</li>`;
+        }
+        
+        // Find most draining task
+        let worstTask = null;
+        let worstTaskDiff = Infinity;
+        Object.entries(timerAverages).forEach(([timer, data]) => {
+            if (data.diff < worstTaskDiff) {
+                worstTask = timer;
+                worstTaskDiff = data.diff;
+            }
+        });
+        
+        if (worstTask && worstTaskDiff < 0) {
+            insights += `<li>"<strong>${worstTask}</strong>" sessions tend to drain your energy the most.</li>`;
+        }
+        
+        // Add time of day insight if we have enough data
+        if (logs.length >= 5) {
+            const morningLogs = logs.filter(log => {
+                const hour = new Date(log.timestamp || log.timestamp).getHours();
+                return hour >= 6 && hour < 12;
+            });
+            
+            const afternoonLogs = logs.filter(log => {
+                const hour = new Date(log.timestamp || log.timestamp).getHours();
+                return hour >= 12 && hour < 18;
+            });
+            
+            const eveningLogs = logs.filter(log => {
+                const hour = new Date(log.timestamp || log.timestamp).getHours();
+                return hour >= 18 || hour < 6;
+            });
+            
+            const timeGroups = [
+                { name: 'Morning', logs: morningLogs },
+                { name: 'Afternoon', logs: afternoonLogs },
+                { name: 'Evening', logs: eveningLogs }
+            ];
+            
+            let bestTime = null;
+            let bestTimeAvg = -Infinity;
+            
+            timeGroups.forEach(group => {
+                if (group.logs.length > 0) {
+                    const avgEnergy = group.logs
+                        .map(log => log.energy_level || log.energyLevel)
+                        .reduce((a,b) => a+b, 0) / group.logs.length;
+                    
+                    if (avgEnergy > bestTimeAvg) {
+                        bestTime = group.name;
+                        bestTimeAvg = avgEnergy;
+                    }
+                }
+            });
+            
+            if (bestTime) {
+                insights += `<li><strong>${bestTime}</strong> appears to be your most energetic time of day.</li>`;
+            }
+        }
+        
+        insights += '</ul>';
+        insightsEl.innerHTML = insights;
     }
 
     // Re-Entry Mode functionality
@@ -599,18 +1003,46 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Get the timer name
+        // Get the timer name and any notes from previous session
         const timerName = timer.querySelector('h3').textContent;
+        
+        // Try to get the last task worked on from flow shelf
+        let lastTaskText = "your previous task";
+        try {
+            const flowShelfItems = JSON.parse(localStorage.getItem('flowShelfItems') || '[]');
+            if (flowShelfItems.length > 0) {
+                lastTaskText = flowShelfItems[0]; // Use the most recent item
+            }
+        } catch (e) {
+            console.error('Error retrieving flow shelf items:', e);
+        }
+        
+        // Generate a small, achievable restart task suggestion
+        const restartTasks = [
+            `Take 2 minutes to review where you left off, then commit to a 5-minute focused session.`,
+            `Read through the last few paragraphs or lines of code you wrote to refresh your memory.`,
+            `Jot down 3 key points you remember from your previous session.`,
+            `Look at your work for one minute, then write a one-sentence summary of your next step.`,
+            `Set a timer for 3 minutes of uninterrupted focus to ease back into your workflow.`
+        ];
+        
+        // Randomly select a restart task
+        const restartTask = restartTasks[Math.floor(Math.random() * restartTasks.length)];
         
         // Create re-entry section
         reEntrySection = document.createElement('div');
         reEntrySection.className = 're-entry-mode';
         reEntrySection.innerHTML = `
-            <h4><i class="fas fa-redo-alt"></i> Re-Entry Mode</h4>
-            <p>Ready to get back to <strong>${timerName}</strong>?</p>
+            <h4><i class="fas fa-redo-alt"></i> Recovery Tracker: Re-Entry Mode</h4>
+            <p><i class="fas fa-volume-up"></i> <em>"Ready to get back in?"</em></p>
+            <div class="re-entry-recap">
+                <h5><i class="fas fa-tasks"></i> Recap of Previous Work:</h5>
+                <p>You were working on <strong>${timerName}</strong>.</p>
+                <p class="last-task-text">Last noted task: "${lastTaskText}"</p>
+            </div>
             <div class="re-entry-task">
-                <h5>Suggested restart task:</h5>
-                <p>Take 2 minutes to review where you left off, then commit to a 10-minute focused session.</p>
+                <h5><i class="fas fa-check-circle"></i> Suggested Restart Task:</h5>
+                <p>${restartTask}</p>
             </div>
             <button class="btn btn-start re-entry-start-btn">
                 <i class="fas fa-play"></i> I'm Ready to Return
@@ -640,4 +1072,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load data from localStorage on page load
     loadShelfFromLocalStorage();
+    
+    // Initialize energy log data if available
+    fetchEnergyLogs();
+    
+    // Initialize energy chart if element exists
+    const energyChartEl = document.getElementById('energy-chart');
+    if (energyChartEl) {
+        displayEnergyChart();
+    }
 });
