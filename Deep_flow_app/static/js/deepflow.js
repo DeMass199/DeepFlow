@@ -943,29 +943,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Process the energy data for insights
-        // Group logs by timeOfDay, task, and day of week
-        const timeOfDayGroups = {
-            'Morning (6AM-12PM)': { count: 0, totalEnergy: 0, logs: [] },
-            'Afternoon (12PM-6PM)': { count: 0, totalEnergy: 0, logs: [] },
-            'Evening (6PM-12AM)': { count: 0, totalEnergy: 0, logs: [] },
-            'Night (12AM-6AM)': { count: 0, totalEnergy: 0, logs: [] }
-        };
-        
-        // Task energy impact (how tasks affect energy levels)
-        const taskImpact = {};
-        
-        // Day of week analysis
-        const dayOfWeekGroups = {
-            0: { name: 'Sunday', count: 0, totalEnergy: 0 },
-            1: { name: 'Monday', count: 0, totalEnergy: 0 },
-            2: { name: 'Tuesday', count: 0, totalEnergy: 0 },
-            3: { name: 'Wednesday', count: 0, totalEnergy: 0 },
-            4: { name: 'Thursday', count: 0, totalEnergy: 0 },
-            5: { name: 'Friday', count: 0, totalEnergy: 0 },
-            6: { name: 'Saturday', count: 0, totalEnergy: 0 }
-        };
-        
         // Process data for display
         const labels = [];
         const datasets = [];
@@ -975,13 +952,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Group logs by date and timer
         const dateGroups = {};
         const timerGroups = {};
-        
-        // Energy level ranges for classification
-        const energyRanges = {
-            low: { min: 1, max: 3, label: 'Low', icon: '😴' },
-            medium: { min: 4, max: 7, label: 'Medium', icon: '😐' },
-            high: { min: 8, max: 10, label: 'High', icon: '⚡' }
-        };
 
         logs.forEach(log => {
             try {
@@ -992,34 +962,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     return; // Skip this log entry
                 }
                 
-                const energyLevel = log.energy_level || log.energyLevel;
                 const formattedDate = `${date.getMonth()+1}/${date.getDate()}`;
-                const hour = date.getHours();
-                const minutes = date.getMinutes();
-                const time = `${hour}:${minutes.toString().padStart(2,'0')}`;
+                const time = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
                 const label = `${formattedDate} ${time}`;
-                const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-                
-                // Categorize by time of day
-                let timeOfDay;
-                if (hour >= 6 && hour < 12) {
-                    timeOfDay = 'Morning (6AM-12PM)';
-                } else if (hour >= 12 && hour < 18) {
-                    timeOfDay = 'Afternoon (12PM-6PM)';
-                } else if (hour >= 18 && hour < 24) {
-                    timeOfDay = 'Evening (6PM-12AM)';
-                } else {
-                    timeOfDay = 'Night (12AM-6AM)';
-                }
-                
-                // Update time of day stats
-                timeOfDayGroups[timeOfDay].count++;
-                timeOfDayGroups[timeOfDay].totalEnergy += energyLevel;
-                timeOfDayGroups[timeOfDay].logs.push(log);
-                
-                // Update day of week stats
-                dayOfWeekGroups[dayOfWeek].count++;
-                dayOfWeekGroups[dayOfWeek].totalEnergy += energyLevel;
                 
                 // Add to date groups
                 const day = `${date.getMonth()+1}/${date.getDate()}`;
@@ -1033,9 +978,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 dateGroups[day].labels.push(time);
                 if (log.stage === 'start') {
-                    dateGroups[day].start.push(energyLevel);
+                    dateGroups[day].start.push(log.energy_level || log.energyLevel);
                 } else {
-                    dateGroups[day].end.push(energyLevel);
+                    dateGroups[day].end.push(log.energy_level || log.energyLevel);
                 }
                 
                 // Add to timer groups
@@ -1043,75 +988,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!timerGroups[timerName]) {
                     timerGroups[timerName] = {
                         start: [],
-                        end: [],
-                        count: 0,
-                        totalEnergyStart: 0,
-                        totalEnergyEnd: 0,
-                        energyChange: 0
+                        end: []
                     };
                 }
                 
                 if (log.stage === 'start') {
-                    timerGroups[timerName].start.push(energyLevel);
-                    timerGroups[timerName].totalEnergyStart += energyLevel;
+                    timerGroups[timerName].start.push(log.energy_level || log.energyLevel);
                 } else {
-                    timerGroups[timerName].end.push(energyLevel);
-                    timerGroups[timerName].totalEnergyEnd += energyLevel;
-                }
-                
-                timerGroups[timerName].count++;
-                // Task impact analysis
-                const taskName = log.timer_name || log.timerName || 'Unknown';
-                
-                // Only analyze paired logs (start and end for same timer)
-                if (timerGroups[taskName].start.length > 0 && timerGroups[taskName].end.length > 0) {
-                    if (!taskImpact[taskName]) {
-                        taskImpact[taskName] = {
-                            totalImpact: 0,
-                            count: 0,
-                            avgImpact: 0
-                        };
-                    }
-                    
-                    // Calculate impact for this task
-                    if (log.stage === 'end') {
-                        const previousStart = timerGroups[taskName].start.length - 1;
-                        if (previousStart >= 0) {
-                            const startEnergy = timerGroups[taskName].start[previousStart];
-                            const endEnergy = energyLevel;
-                            const impact = endEnergy - startEnergy;
-                            
-                            taskImpact[taskName].totalImpact += impact;
-                            taskImpact[taskName].count++;
-                            taskImpact[taskName].avgImpact = taskImpact[taskName].totalImpact / taskImpact[taskName].count;
-                        }
-                    }
+                    timerGroups[timerName].end.push(log.energy_level || log.energyLevel);
                 }
             } catch (e) {
                 console.error('Error processing energy log:', e, log);
             }
-        });
-        
-        // Process timer groups to calculate energy changes
-        Object.keys(timerGroups).forEach(timerName => {
-            const group = timerGroups[timerName];
-            if (group.start.length > 0 && group.end.length > 0) {
-                const avgStart = group.totalEnergyStart / group.start.length;
-                const avgEnd = group.totalEnergyEnd / group.end.length;
-                group.energyChange = avgEnd - avgStart;
-            }
-        });
-        
-        // Calculate time of day averages
-        Object.keys(timeOfDayGroups).forEach(tod => {
-            const group = timeOfDayGroups[tod];
-            group.avgEnergy = group.count > 0 ? group.totalEnergy / group.count : 0;
-        });
-        
-        // Calculate day of week averages
-        Object.keys(dayOfWeekGroups).forEach(day => {
-            const group = dayOfWeekGroups[day];
-            group.avgEnergy = group.count > 0 ? group.totalEnergy / group.count : 0;
         });
         
         // Create chart instance
@@ -1192,280 +1080,110 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Find best time of day for energy
-        let bestTimeOfDay = Object.keys(timeOfDayGroups).reduce((best, current) => {
-            return (timeOfDayGroups[current].avgEnergy > timeOfDayGroups[best].avgEnergy) ? 
-                current : best;
-        }, Object.keys(timeOfDayGroups)[0]);
+        // Add insights summary
+        const container = document.getElementById('energy-chart-container');
+        let insightsEl = document.getElementById('energy-insights');
+        if (!insightsEl) {
+            insightsEl = document.createElement('div');
+            insightsEl.id = 'energy-insights';
+            insightsEl.style.marginTop = '20px';
+            insightsEl.style.fontSize = '0.9em';
+            container.appendChild(insightsEl);
+        }
         
-        // Find best day of week for energy
-        let bestDayOfWeek = Object.keys(dayOfWeekGroups).reduce((best, current) => {
-            return (dayOfWeekGroups[current].avgEnergy > dayOfWeekGroups[best].avgEnergy) ? 
-                current : best;
-        }, '0');
+        // Generate insights
+        let insights = '<h4>Energy Insights:</h4><ul>';
         
-        // Find the most energizing task
-        let mostEnergizingTask = null;
-        let bestTaskAvgImpact = -Infinity;
+        // Find best performing tasks/times
+        const timerAverages = {};
+        Object.entries(timerGroups).forEach(([timer, data]) => {
+            const startAvg = data.start.length ? 
+                data.start.reduce((a,b) => a+b, 0) / data.start.length : 0;
+            const endAvg = data.end.length ? 
+                data.end.reduce((a,b) => a+b, 0) / data.end.length : 0;
+            const diff = endAvg - startAvg;
+            
+            timerAverages[timer] = {
+                startAvg,
+                endAvg,
+                diff
+            };
+        });
         
-        Object.keys(taskImpact).forEach(task => {
-            if (taskImpact[task].count >= 2 && taskImpact[task].avgImpact > bestTaskAvgImpact) {
-                mostEnergizingTask = task;
-                bestTaskAvgImpact = taskImpact[task].avgImpact;
+        // Find most energizing task
+        let bestTask = null;
+        let bestTaskDiff = -Infinity;
+        Object.entries(timerAverages).forEach(([timer, data]) => {
+            if (data.diff > bestTaskDiff) {
+                bestTask = timer;
+                bestTaskDiff = data.diff;
             }
         });
         
-        // Update the trend cards with the insights
-        if (bestTimeValue) {
-            const timeText = timeOfDayGroups[bestTimeOfDay].avgEnergy > 0 ? 
-                bestTimeOfDay : 'Not enough data';
-            bestTimeValue.textContent = timeText;
+        if (bestTask && bestTaskDiff > 0) {
+            insights += `<li>"<strong>${bestTask}</strong>" sessions tend to increase your energy levels the most.</li>`;
         }
         
-        if (bestTaskValue) {
-            const taskText = (mostEnergizingTask && bestTaskAvgImpact > 0) ? 
-                mostEnergizingTask : 'Not enough data';
-            bestTaskValue.textContent = taskText;
+        // Find most draining task
+        let worstTask = null;
+        let worstTaskDiff = Infinity;
+        Object.entries(timerAverages).forEach(([timer, data]) => {
+            if (data.diff < worstTaskDiff) {
+                worstTask = timer;
+                worstTaskDiff = data.diff;
+            }
+        });
+        
+        if (worstTask && worstTaskDiff < 0) {
+            insights += `<li>"<strong>${worstTask}</strong>" sessions tend to drain your energy the most.</li>`;
         }
         
-        // Populate the Energy Insights content with detailed information
-        if (insightsContent) {
-            // Clear any existing content first
-            insightsContent.innerHTML = '';
+        // Add time of day insight if we have enough data
+        if (logs.length >= 5) {
+            const morningLogs = logs.filter(log => {
+                const hour = new Date(log.timestamp || log.timestamp).getHours();
+                return hour >= 6 && hour < 12;
+            });
             
-            // Create detailed insights if we have enough data
-            if (logs.length >= 3) {
-                // Energy pattern insights box
-                const patternInsight = document.createElement('div');
-                patternInsight.className = 'energy-insights-box';
-                
-                // Time of day insight
-                let timeOfDayInsight = '';
-                if (timeOfDayGroups[bestTimeOfDay].avgEnergy > 0) {
-                    timeOfDayInsight = `
-                        <div class="energy-insight-item">
-                            <div class="energy-insights-icon">
-                                <i class="fas fa-clock"></i>
-                            </div>
-                            <div class="energy-insight-content">
-                                <div class="energy-insight-title">Peak Energy Time</div>
-                                <div class="energy-insight-desc">
-                                    Your energy levels tend to be highest during ${bestTimeOfDay}. 
-                                    Consider scheduling your most demanding tasks during this timeframe.
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                // Best day of week insight
-                let dayOfWeekInsight = '';
-                if (dayOfWeekGroups[bestDayOfWeek].count >= 2) {
-                    dayOfWeekInsight = `
-                        <div class="energy-insight-item">
-                            <div class="energy-insights-icon">
-                                <i class="fas fa-calendar-day"></i>
-                            </div>
-                            <div class="energy-insight-content">
-                                <div class="energy-insight-title">Best Day of the Week</div>
-                                <div class="energy-insight-desc">
-                                    ${dayOfWeekGroups[bestDayOfWeek].name} appears to be your most energetic day.
-                                    Plan important activities or focus sessions on this day when possible.
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                // Task impact insight
-                let taskImpactInsight = '';
-                if (mostEnergizingTask && bestTaskAvgImpact > 0) {
-                    taskImpactInsight = `
-                        <div class="energy-insight-item">
-                            <div class="energy-insights-icon">
-                                <i class="fas fa-bolt"></i>
-                            </div>
-                            <div class="energy-insight-content">
-                                <div class="energy-insight-title">Energy Boosting Activity</div>
-                                <div class="energy-insight-desc">
-                                    "${mostEnergizingTask}" sessions tend to increase your energy levels by 
-                                    approximately ${bestTaskAvgImpact.toFixed(1)} points. Consider using this 
-                                    activity when you need an energy boost.
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                // Find most draining task if it exists
-                let mostDrainingTask = null;
-                let worstTaskAvgImpact = Infinity;
-                
-                Object.keys(taskImpact).forEach(task => {
-                    if (taskImpact[task].count >= 2 && taskImpact[task].avgImpact < worstTaskAvgImpact && taskImpact[task].avgImpact < 0) {
-                        mostDrainingTask = task;
-                        worstTaskAvgImpact = taskImpact[task].avgImpact;
-                    }
-                });
-                
-                // Draining task insight
-                let drainingTaskInsight = '';
-                if (mostDrainingTask && worstTaskAvgImpact < 0) {
-                    drainingTaskInsight = `
-                        <div class="energy-insight-item">
-                            <div class="energy-insights-icon">
-                                <i class="fas fa-battery-quarter"></i>
-                            </div>
-                            <div class="energy-insight-content">
-                                <div class="energy-insight-title">Energy Draining Activity</div>
-                                <div class="energy-insight-desc">
-                                    "${mostDrainingTask}" sessions tend to decrease your energy levels by 
-                                    approximately ${Math.abs(worstTaskAvgImpact).toFixed(1)} points. Try scheduling 
-                                    these sessions when you don't need to be at peak energy afterward.
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                // Combine all insights
-                patternInsight.innerHTML = timeOfDayInsight + dayOfWeekInsight + taskImpactInsight + drainingTaskInsight;
-                
-                // Only add the box if we have at least one insight
-                if (timeOfDayInsight || dayOfWeekInsight || taskImpactInsight || drainingTaskInsight) {
-                    insightsContent.appendChild(patternInsight);
-                }
-                
-                // Energy trend statistics
-                const trendStats = document.createElement('div');
-                trendStats.className = 'energy-stats-container';
-                
-                // Calculate overall energy trend
-                let totalStartEnergy = 0;
-                let totalEndEnergy = 0;
-                let startCount = 0;
-                let endCount = 0;
-                
-                logs.forEach(log => {
-                    const energy = log.energy_level || log.energyLevel;
-                    if (log.stage === 'start') {
-                        totalStartEnergy += energy;
-                        startCount++;
-                    } else {
-                        totalEndEnergy += energy;
-                        endCount++;
-                    }
-                });
-                
-                const avgStartEnergy = startCount > 0 ? totalStartEnergy / startCount : 0;
-                const avgEndEnergy = endCount > 0 ? totalEndEnergy / endCount : 0;
-                const overallTrend = avgEndEnergy - avgStartEnergy;
-                
-                // Overall energy trend stat
-                let trendIcon = 'fa-minus';
-                let trendColor = '#666';
-                
-                if (overallTrend > 0.5) {
-                    trendIcon = 'fa-arrow-up';
-                    trendColor = '#28a745';
-                } else if (overallTrend < -0.5) {
-                    trendIcon = 'fa-arrow-down';
-                    trendColor = '#dc3545';
-                }
-                
-                trendStats.innerHTML = `
-                    <div class="energy-stat">
-                        <i class="fas ${trendIcon} energy-stat-icon" style="color: ${trendColor}"></i>
-                        <div class="energy-stat-content">
-                            <div class="energy-stat-value">${Math.abs(overallTrend).toFixed(1)} point ${overallTrend >= 0 ? 'increase' : 'decrease'}</div>
-                            <div class="energy-stat-label">Average energy change after work sessions</div>
-                        </div>
-                    </div>
-                `;
-                
-                insightsContent.appendChild(trendStats);
-                
-                // Recommendation box
-                const recommendationBox = document.createElement('div');
-                recommendationBox.className = 'energy-insights-box';
-                
-                // Generate personalized recommendations based on data
-                let recommendations = [];
-                
-                if (overallTrend < -1) {
-                    // Sessions are draining energy significantly
-                    recommendations.push({
-                        icon: 'fa-clock',
-                        title: 'Shorter Sessions',
-                        desc: 'Your energy tends to drop significantly during work sessions. Consider using shorter focus periods with more frequent breaks.'
-                    });
-                }
-                
-                if (bestTaskAvgImpact > 1) {
-                    // Energizing tasks exist
-                    recommendations.push({
-                        icon: 'fa-tasks',
-                        title: 'Energy Boosting Task',
-                        desc: `Start your day with "${mostEnergizingTask}" to boost your energy levels before tackling other tasks.`
-                    });
-                }
-                
-                // Add more recommendations if we have more data points
-                if (logs.length >= 7) {
-                    // Add recommendations based on time of day patterns
-                    if (timeOfDayGroups[bestTimeOfDay].avgEnergy - timeOfDayGroups['Night (12AM-6AM)'].avgEnergy > 2) {
-                        recommendations.push({
-                            icon: 'fa-sun',
-                            title: 'Optimize Your Schedule',
-                            desc: `Schedule your most challenging tasks during ${bestTimeOfDay} when your energy is at its peak.`
-                        });
+            const afternoonLogs = logs.filter(log => {
+                const hour = new Date(log.timestamp || log.timestamp).getHours();
+                return hour >= 12 && hour < 18;
+            });
+            
+            const eveningLogs = logs.filter(log => {
+                const hour = new Date(log.timestamp || log.timestamp).getHours();
+                return hour >= 18 || hour < 6;
+            });
+            
+            const timeGroups = [
+                { name: 'Morning', logs: morningLogs },
+                { name: 'Afternoon', logs: afternoonLogs },
+                { name: 'Evening', logs: eveningLogs }
+            ];
+            
+            let bestTime = null;
+            let bestTimeAvg = -Infinity;
+            
+            timeGroups.forEach(group => {
+                if (group.logs.length > 0) {
+                    const avgEnergy = group.logs
+                        .map(log => log.energy_level || log.energyLevel)
+                        .reduce((a,b) => a+b, 0) / group.logs.length;
+                    
+                    if (avgEnergy > bestTimeAvg) {
+                        bestTime = group.name;
+                        bestTimeAvg = avgEnergy;
                     }
                 }
-                
-                // Add at least one recommendation even if data is limited
-                if (recommendations.length === 0) {
-                    recommendations.push({
-                        icon: 'fa-chart-line',
-                        title: 'Track More Data',
-                        desc: 'Continue logging your energy levels to receive more personalized recommendations based on your patterns.'
-                    });
-                }
-                
-                // Build recommendation HTML
-                let recommendationHtml = '';
-                recommendations.forEach(rec => {
-                    recommendationHtml += `
-                        <div class="energy-insight-item">
-                            <div class="energy-insights-icon">
-                                <i class="fas ${rec.icon}"></i>
-                            </div>
-                            <div class="energy-insight-content">
-                                <div class="energy-insight-title">${rec.title}</div>
-                                <div class="energy-insight-desc">${rec.desc}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                recommendationBox.innerHTML = `
-                    <h4 style="margin-top: 0; margin-bottom: 15px; color: #4facfe;">
-                        <i class="fas fa-lightbulb"></i> Recommendations
-                    </h4>
-                    ${recommendationHtml}
-                `;
-                
-                insightsContent.appendChild(recommendationBox);
-            } else {
-                // Not enough data yet
-                insightsContent.innerHTML = `
-                    <div class="empty-insights">
-                        <i class="fas fa-chart-bar"></i>
-                        <p>Track more energy levels with timers to see detailed insights here.</p>
-                        <p>We need at least 3 data points to generate insights.</p>
-                    </div>
-                `;
+            });
+            
+            if (bestTime) {
+                insights += `<li><strong>${bestTime}</strong> appears to be your most energetic time of day.</li>`;
             }
         }
+        
+        insights += '</ul>';
+        insightsEl.innerHTML = insights;
     }
 
     // Re-Entry Mode functionality

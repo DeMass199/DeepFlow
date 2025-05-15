@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Deepflow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/energy-log.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/energy-insights.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/timer.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/timer-buttons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Add Chart.js for Energy Log visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Any custom overrides can go here */
+    </style>
+</head>
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #34495e;
+        }
+        .sidebar-nav {
+            padding: 20px 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background-color: #34495e;
+        }
+        .nav-item i {
+            margin-right: 10px;
+        }
+        .main-content {
+            flex: 1;
+            padding: 20px;
+        }
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .accessibility-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .accessibility-controls .btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8f9fa;
+            color: #6c757d;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .accessibility-controls .btn:hover {
+            background-color: #e9ecef;
+            transform: scale(1.05);
+        }
+        
+        .accessibility-controls .btn.active {
+            background-color: #007bff;
+            color: white;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.7);
+        }
+        
+        .accessibility-label {
+            font-size: 0.8rem;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+        
+        .timer-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .timer-form {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .timer-list {
+            margin-top: 20px;
+        }
+        .timer-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: white;
+        }
+        .timer-running {
+            background-color: #e6f7e6;
+            border-left: 4px solid #28a745;
+        }
+        .timer-paused {
+            background-color: #fcf8e3;
+            border-left: 4px solid #ffc107;
+        }
+        .timer-stopped {
+            background-color: #f7e6e6;
+            border-left: 4px solid #dc3545;
+        }
+        .timer-details {
+            flex-grow: 1;
+        }
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-start {
+            background-color: #28a745;
+        }
+        .btn-pause {
+            background-color: #ffc107;
+        }
+        .btn-resume {
+            background-color: #17a2b8;
+        }
+        .btn-stop {
+            background-color: #dc3545;
+        }
+        .btn-delete {
+            background-color: #6c757d;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        /* Sound player specific styles */
+        .sound-option {
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            display: inline-block;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .sound-option:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .sound-option.active {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .sound-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2 class="logo"><i class="fas fa-brain"></i> Deepflow</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item active">
+                    <i class="fas fa-clock"></i> Timers
+                </a>
+                <a href="{{ url_for('settings') }}" class="nav-item">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="dashboard-header">
+                <div>
+                    <h1>Welcome, {{ session['username'] }}!</h1>
+                    <p class="text-muted">Manage your focus and flow state</p>
+                    <div id="accessibility-status" style="display: none;">
+                        <i class="fas fa-universal-access"></i> <span id="status-text">High contrast mode is active</span>
+                    </div>
+                </div>
+                <div class="accessibility-controls">
+                    <div style="display: flex; align-items: center;">
+                        <button id="toggle-contrast" class="btn" title="Toggle high contrast mode">
+                            <i class="fas fa-adjust"></i>
+                        </button>
+                        <span class="accessibility-label" id="contrast-label">High Contrast</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <button id="toggle-font" class="btn" title="Toggle OpenDyslexic font">
+                            <i class="fas fa-font"></i>
+                        </button>
+                        <span class="accessibility-label" id="font-label">Dyslexic Font</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Flash Messages -->
+            <div class="flash-messages">
+                {% for category, message in get_flashed_messages(with_categories=true) %}
+                    <div class="flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+
+            <!-- Add Timer Form -->
+            <div class="timer-container">
+                <h2><i class="fas fa-plus-circle"></i> New Timer</h2>
+                <div class="timer-form">
+                    <form action="{{ url_for('add_timer') }}" method="post">
+                        <div class="form-group">
+                            <label for="name">Timer Name:</label>
+                            <input type="text" id="name" name="name" placeholder="e.g., Study Session, Deep Work" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="duration">Duration (minutes):</label>
+                            <input type="number" id="duration" name="duration" min="30" max="240" value="90" required>
+                            <small class="text-muted">For long focus sessions (30-240 minutes)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="button" id="advanced-settings-toggle" class="btn btn-link">Show Advanced Settings</button>
+                            <div id="advanced-timer-settings" class="timer-advanced-settings hidden">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="enable-checkin" name="enable_checkin" checked>
+                                    <label for="enable-checkin">Enable mid-session check-in</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="enable-reentry" name="enable_reentry" checked>
+                                    <label for="enable-reentry">Enable Re-Entry Mode after session</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="enable-energy-log" name="enable_energy_log" checked>
+                                    <label for="enable-energy-log">Track energy levels</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="enable-sound" name="enable_sound">
+                                    <label for="enable-sound">Play background sounds</label>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-start">
+                            <i class="fas fa-plus"></i> Add Timer
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Timer List -->
+            <div class="timer-container">
+                <h2><i class="fas fa-list"></i> Your Timers</h2>
+                <div class="timer-list">
+                    {% if timers %}
+                        {% for timer in timers %}
+                            <div class="timer-item {% if timer[6] %}timer-running{% else %}timer-stopped{% endif %}" data-timer-id="{{ timer[0] }}">
+                                <div class="timer-details">
+                                    <h3>{{ timer[2] }}</h3>
+                                    <p><i class="fas fa-stopwatch"></i> {{ timer[3] // 60 }} minutes</p>
+                                    {% if timer[4] %}
+                                        <p><i class="fas fa-play"></i> Started: {{ timer[4] }}</p>
+                                    {% endif %}
+                                    {% if timer[5] %}
+                                        <p><i class="fas fa-stop"></i> Ended: {{ timer[5] }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="timer-controls">
+                                    <button type="button" class="btn btn-start start-timer-btn" data-timer-id="{{ timer[0] }}" data-duration="{{ timer[3] // 60 }}" style="display: {% if not timer[6] %}inline-flex{% else %}none{% endif %};">
+                                        <i class="fas fa-play"></i> Start
+                                    </button>
+                                    <button type="button" class="btn btn-pause pause-timer-btn" data-timer-id="{{ timer[0] }}" style="display: {% if timer[6] %}inline-flex{% else %}none{% endif %}">
+                                        <i class="fas fa-pause"></i> Pause
+                                    </button>
+                                    <button type="button" class="btn btn-resume resume-timer-btn" data-timer-id="{{ timer[0] }}" style="display: none;">
+                                        <i class="fas fa-play"></i> Resume
+                                    </button>
+                                    {% if timer[6] %}
+                                    <button type="button" class="btn btn-stop stop-timer-btn" data-timer-id="{{ timer[0] }}">
+                                        <i class="fas fa-stop"></i> Stop
+                                    </button>
+                                    {% endif %}
+                                    <form action="{{ url_for('delete_timer', timer_id=timer[0]) }}" method="post" 
+                                          onsubmit="return confirm('Are you sure you want to delete this timer?');">
+                                        <button type="submit" class="btn btn-delete">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-clock"></i>
+                            <p>No timers yet. Create your first timer to get started!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Flow Shelf - Task Queue for Later -->
+            <div class="timer-container">
+                <h2><i class="fas fa-layer-group"></i> Flow Shelf</h2>
+                <p>Add your task ideas here so you can stay focused without losing ideas.</p>
+                <div class="flow-shelf">
+                    <form id="flow-shelf-form" class="shelf-add-form">
+                        <input type="text" name="shelf-item" placeholder="Add a quick thought or task..." required>
+                        <button type="submit"><i class="fas fa-plus"></i> Add</button>
+                    </form>
+                    <div id="flow-shelf-list">
+                        <!-- Shelf items will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sound Player -->
+            <div class="timer-container">
+                <h2><i class="fas fa-music"></i> Focus Sounds</h2>
+                <p>Play curated soundtracks to maintain a consistent focus environment.</p>
+                <div class="sound-player">
+                    <div class="sound-options">
+                        <div class="sound-option" data-sound="nature">
+                            <i class="fas fa-tree"></i> Nature
+                        </div>
+                        <div class="sound-option" data-sound="rain">
+                            <i class="fas fa-cloud-rain"></i> Rain
+                        </div>
+                        <div class="sound-option" data-sound="whitenoise">
+                            <i class="fas fa-wave-square"></i> White Noise
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button id="sound-play-pause" class="btn btn-primary" disabled>
+                            <i class="fas fa-play"></i> Play
+                        </button>
+                        <div style="display: flex; align-items: center; margin-top: 10px;">
+                            <i class="fas fa-volume-down"></i>
+                            <input type="range" id="sound-volume" min="0" max="100" value="70" style="flex-grow: 1; margin: 0 10px;">
+                            <i class="fas fa-volume-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <!-- Energy Log -->
+            <div class="timer-container">
+                <h2><i class="fas fa-chart-line"></i> Energy Log</h2>
+                <p>Track your energy levels before, during, and after sessions to find patterns.</p>
+                <div id="energy-chart-container" style="height: 200px;">
+                    <canvas id="energy-chart"></canvas>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #6c757d;">
+                    Energy levels will be tracked when you start and stop timers with energy tracking enabled.
+                </div>
+            </div>
+
+            <!-- Energy Insights -->
+            <div class="energy-insights-container">
+                <div class="energy-insights-header">
+                    <i class="fas fa-lightbulb"></i>
+                    <h2>Energy Insights</h2>
+                </div>
+                <p>Personalized insights about your energy patterns and productivity based on your tracked data.</p>
+                
+                <div id="energy-insights-content">
+                    <!-- This will be populated by JavaScript -->
+                    <div class="empty-insights">
+                        <i class="fas fa-chart-bar"></i>
+                        <p>Track your energy levels with timers to see insights here.</p>
+                    </div>
+                </div>
+                
+                <div class="energy-trends">
+                    <div class="energy-trend-card">
+                        <div class="energy-trend-header">
+                            <i class="fas fa-sun energy-trend-icon"></i>
+                            <div class="energy-trend-title">Best Time of Day</div>
+                        </div>
+                        <div class="energy-trend-value" id="best-time-value">--</div>
+                    </div>
+                    <div class="energy-trend-card">
+                        <div class="energy-trend-header">
+                            <i class="fas fa-tasks energy-trend-icon"></i>
+                            <div class="energy-trend-title">Most Energizing Task</div>
+                        </div>
+                        <div class="energy-trend-value" id="best-task-value">--</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Simple Footer -->
+    <footer style="text-align: center; padding: 10px; background-color: #f8f9fa; color: #6c757d; font-size: 0.9em; border-top: 1px solid #e9ecef;">
+        <p>&copy; 2025 DeepFlow - Focus Management for Neurodivergent Users</p>
+        <p><a href="{{ url_for('privacy_user') }}" style="color: #007bff; text-decoration: none;">Privacy Policy</a></p>
+    </footer>
+    
+    <!-- DeepFlow JavaScript -->
+    <script src="{{ url_for('static', filename='js/deepflow.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/timer-toggle.js') }}"></script>
+    
+    <!-- Accessibility Controls JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for saved preferences
+            const highContrast = localStorage.getItem('highContrast') === 'true';
+            const dyslexicFont = localStorage.getItem('dyslexicFont') === 'true';
+            
+            // Get the indicator element
+            const contrastIndicator = document.getElementById('contrast-indicator');
+            const contrastLabel = document.getElementById('contrast-label');
+            const fontLabel = document.getElementById('font-label');
+            const accessibilityStatus = document.getElementById('accessibility-status');
+            const statusText = document.getElementById('status-text');
+            
+            // Apply saved preferences if they exist
+            if (highContrast) {
+                document.body.classList.add('high-contrast');
+                document.getElementById('toggle-contrast').classList.add('active');
+                // Show the indicator
+                contrastIndicator.style.display = 'block';
+                contrastIndicator.style.backgroundColor = '#00ff00';
+                // Update label
+                contrastLabel.textContent = 'High Contrast: ON';
+                contrastLabel.style.color = '#00ff00';
+                // Show accessibility status
+                accessibilityStatus.style.display = 'block';
+                accessibilityStatus.style.borderLeftColor = '#00ff00';
+                statusText.textContent = 'High contrast mode is active';
+            } else {
+                contrastLabel.textContent = 'High Contrast: OFF';
+            }
+            
+            if (dyslexicFont) {
+                document.body.classList.add('dyslexic-font');
+                document.getElementById('toggle-font').classList.add('active');
+                // Update label
+                fontLabel.textContent = 'Dyslexic Font: ON';
+                fontLabel.style.color = '#007bff';
+                // Show accessibility status if not already shown by high contrast
+                if (!highContrast) {
+                    accessibilityStatus.style.display = 'block';
+                    accessibilityStatus.style.borderLeftColor = '#007bff';
+                    statusText.textContent = 'Dyslexic font is active';
+                }
+            } else {
+                fontLabel.textContent = 'Dyslexic Font: OFF';
+            }
+            
+            // Set up toggle buttons
+            document.getElementById('toggle-contrast').addEventListener('click', function() {
+                document.body.classList.toggle('high-contrast');
+                this.classList.toggle('active');
+                
+                // Update the indicator
+                const isHighContrast = document.body.classList.contains('high-contrast');
+                if (isHighContrast) {
+                    contrastIndicator.style.display = 'block';
+                    contrastIndicator.style.backgroundColor = '#00ff00';
+                    contrastLabel.textContent = 'High Contrast: ON';
+                    contrastLabel.style.color = '#00ff00';
+                    // Show accessibility status
+                    accessibilityStatus.style.display = 'block';
+                    accessibilityStatus.style.borderLeftColor = '#00ff00';
+                    statusText.textContent = 'High contrast mode is active';
+                } else {
+                    contrastIndicator.style.display = 'none';
+                    contrastLabel.textContent = 'High Contrast: OFF';
+                    contrastLabel.style.color = '';
+                    // Hide accessibility status if dyslexic font is also off
+                    if (!document.body.classList.contains('dyslexic-font')) {
+                        accessibilityStatus.style.display = 'none';
+                    } else {
+                        statusText.textContent = 'Dyslexic font is active';
+                        accessibilityStatus.style.borderLeftColor = '#007bff';
+                    }
+                }
+                
+                // Save preference
+                localStorage.setItem('highContrast', isHighContrast);
+                
+                // Also save in the format used by settings page
+                localStorage.setItem('deepflow_contrast_preference', isHighContrast ? 'high' : 'normal');
+            });
+            
+            document.getElementById('toggle-font').addEventListener('click', function() {
+                document.body.classList.toggle('dyslexic-font');
+                this.classList.toggle('active');
+                
+                const isDyslexicFont = document.body.classList.contains('dyslexic-font');
+                const isHighContrast = document.body.classList.contains('high-contrast');
+                
+                if (isDyslexicFont) {
+                    fontLabel.textContent = 'Dyslexic Font: ON';
+                    fontLabel.style.color = '#007bff';
+                    
+                    // Update accessibility status if high contrast is not active
+                    if (!isHighContrast) {
+                        accessibilityStatus.style.display = 'block';
+                        accessibilityStatus.style.borderLeftColor = '#007bff';
+                        statusText.textContent = 'Dyslexic font is active';
+                    }
+                } else {
+                    fontLabel.textContent = 'Dyslexic Font: OFF';
+                    fontLabel.style.color = '';
+                    
+                    // Hide accessibility status if high contrast is also off
+                    if (!isHighContrast) {
+                        accessibilityStatus.style.display = 'none';
+                    }
+                }
+                
+                localStorage.setItem('dyslexicFont', isDyslexicFont);
+            });
+        });
+    </script>
+    
+    <!-- Additional styling for hidden elements -->
+    <style>
+        .hidden {
+            display: none;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .btn-link {
+            background: none;
+            color: #007bff;
+            border: none;
+            padding: 0;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+        }
+    </style>
+</body>
+</html>

@@ -1,10 +1,10 @@
-from flask import Flask, request, render_template, redirect, url_for, flash, session, jsonify
+from flask import Flask, request, render_template, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 import logging
 import json
-import datetime
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -99,11 +99,11 @@ def add_user_to_db(username, password):
         if conn:
             conn.rollback()
         return "db_error", f"Database error: {str(e)}"
-    except Exception as e:  # Add specific exception handling if possible
-        logger.error("Unexpected error: %s when adding user '%s'", str(e), username)
+    except (ValueError, TypeError) as e:  # Catch specific exceptions instead of generic Exception
+        logger.error("Input error: %s when adding user '%s'", str(e), username)
         if conn:
             conn.rollback()
-        return "unexpected_error", f"An unexpected error occurred: {str(e)}"
+        return "input_error", f"Input validation error: {str(e)}"
     finally:
         if conn:
             conn.close()
@@ -685,7 +685,6 @@ def settings():
         return redirect(url_for("login"))
 
     username = session.get('username', '')
-    update_message = None
     
     if request.method == "POST":
         action = request.form.get("action")
@@ -758,7 +757,6 @@ def settings():
                             logger.error("Error updating password: %s", str(e))
                             flash("Failed to update password.", "error")
     
-    from datetime import datetime
     last_updated = datetime.now().strftime("%B %d, %Y")
     return render_template("settings.html", username=username, last_updated=last_updated)
 
@@ -802,7 +800,7 @@ def export_user_data():
             'timers': timers,
             'flow_shelf': flow_shelf,
             'energy_logs': energy_logs,
-            'export_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
         # Create a JSON response with a file download
@@ -810,7 +808,7 @@ def export_user_data():
             response=json.dumps(data, indent=4),
             mimetype='application/json'
         )
-        response.headers["Content-Disposition"] = f"attachment; filename=deepflow_data_{username}_{datetime.datetime.now().strftime('%Y%m%d')}.json"
+        response.headers["Content-Disposition"] = f"attachment; filename=deepflow_data_{username}_{datetime.now().strftime('%Y%m%d')}.json"
         
         return response
         
@@ -859,7 +857,6 @@ def delete_account():
 @app.route("/privacy")
 def privacy():
     """Show the privacy policy as a standalone page"""
-    from datetime import datetime
     current_date = datetime.now().strftime("%B %d, %Y")
     return render_template("privacy_policy.html", current_date=current_date)
 
