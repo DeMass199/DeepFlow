@@ -39,17 +39,8 @@
                 <div>
                     <h1>Welcome, {{ session['username'] }}!</h1>
                     <p class="text-muted">Manage your focus and flow state</p>
-                    <div id="accessibility-status" style="display: none;">
-                        <i class="fas fa-universal-access"></i> <span id="status-text">High contrast mode is active</span>
-                    </div>
                 </div>
                 <div class="accessibility-controls">
-                    <div>
-                        <button id="toggle-contrast" class="btn" title="Toggle high contrast mode">
-                            <i class="fas fa-adjust"></i>
-                        </button>
-                        <span class="accessibility-label" id="contrast-label">High Contrast</span>
-                    </div>
                     <div>
                         <button id="toggle-font" class="btn" title="Toggle OpenDyslexic font">
                             <i class="fas fa-font"></i>
@@ -242,42 +233,14 @@
         // Initialize the dashboard
         document.addEventListener('DOMContentLoaded', function() {
             // Setup accessibility toggles
-            const contrastToggle = document.getElementById('toggle-contrast');
             const fontToggle = document.getElementById('toggle-font');
             const body = document.body;
-            const accessibilityStatus = document.getElementById('accessibility-status');
-            const statusText = document.getElementById('status-text');
             
             // Check for saved preferences
-            if (localStorage.getItem('highContrast') === 'true') {
-                body.classList.add('high-contrast');
-                contrastToggle.classList.add('active');
-                accessibilityStatus.style.display = 'flex';
-                statusText.textContent = 'High contrast mode is active';
-            }
-            
             if (localStorage.getItem('dyslexicFont') === 'true') {
                 body.classList.add('dyslexic-font');
                 fontToggle.classList.add('active');
-                accessibilityStatus.style.display = 'flex';
-                statusText.textContent = 'Dyslexic font is active';
             }
-            
-            contrastToggle.addEventListener('click', function() {
-                body.classList.toggle('high-contrast');
-                this.classList.toggle('active');
-                
-                if (body.classList.contains('high-contrast')) {
-                    localStorage.setItem('highContrast', 'true');
-                    accessibilityStatus.style.display = 'flex';
-                    statusText.textContent = 'High contrast mode is active';
-                } else {
-                    localStorage.setItem('highContrast', 'false');
-                    if (!body.classList.contains('dyslexic-font')) {
-                        accessibilityStatus.style.display = 'none';
-                    }
-                }
-            });
             
             fontToggle.addEventListener('click', function() {
                 body.classList.toggle('dyslexic-font');
@@ -285,13 +248,8 @@
                 
                 if (body.classList.contains('dyslexic-font')) {
                     localStorage.setItem('dyslexicFont', 'true');
-                    accessibilityStatus.style.display = 'flex';
-                    statusText.textContent = 'Dyslexic font is active';
                 } else {
                     localStorage.setItem('dyslexicFont', 'false');
-                    if (!body.classList.contains('high-contrast')) {
-                        accessibilityStatus.style.display = 'none';
-                    }
                 }
             });
             

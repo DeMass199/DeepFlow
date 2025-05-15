@@ -83,7 +83,7 @@
             border: 1px solid #ddd;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .font-selector, .contrast-selector {
+        .font-selector {
             display: inline-flex;
             align-items: center;
             gap: 10px;
@@ -93,119 +93,13 @@
             border: 1px solid #e0e0e0;
             transition: all 0.3s ease;
         }
-        .font-selector:hover, .contrast-selector:hover {
+        .font-selector:hover {
             box-shadow: 0 0 8px rgba(0,123,255,0.5);
-        }
-        #contrast-toggle {
-            width: 30px;
-            height: 18px;
-            appearance: none;
-            background-color: #e0e0e0;
-            border-radius: 10px;
-            position: relative;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            outline: none;
-        }
-        #contrast-toggle:checked {
-            background-color: #007bff;
-        }
-        #contrast-toggle:before {
-            content: '';
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background-color: white;
-            top: 2px;
-            left: 2px;
-            transition: all 0.3s ease;
-        }
-        #contrast-toggle:checked:before {
-            left: 14px;
-        }
-        #contrast-status {
-            font-weight: bold;
-            transition: color 0.3s ease;
         }
         select {
             padding: 8px;
             border-radius: 4px;
             border: 1px solid #ddd;
-        }
-        .high-contrast {
-            background-color: #000 !important;
-            color: #fff !important;
-        }
-        .high-contrast h1, .high-contrast h2, .high-contrast h3, .high-contrast h4 {
-            color: #ffff00 !important;
-            text-shadow: 1px 1px 1px rgba(0,0,0,0.5) !important;
-        }
-        .high-contrast a {
-            color: #00ffff !important;
-            text-decoration: underline !important;
-        }
-        .high-contrast a:hover, .high-contrast a:focus {
-            color: #ffffff !important;
-            background-color: #0000aa !important;
-            outline: 2px solid #00ffff !important;
-        }
-        .high-contrast .header, 
-        .high-contrast .container,
-        .high-contrast .settings-form,
-        .high-contrast .tabs,
-        .high-contrast .tab-content,
-        .high-contrast .section {
-            background-color: #000 !important;
-            color: #fff !important;
-            border-color: #fff !important;
-        }
-        .high-contrast .tab {
-            background-color: #000 !important;
-            color: #fff !important;
-            border: 1px solid #fff !important;
-        }
-        .high-contrast .tab.active {
-            background-color: #0000aa !important;
-            border-color: #00ffff !important;
-            outline: 2px solid #fff !important;
-        }
-        .high-contrast input, 
-        .high-contrast select, 
-        .high-contrast textarea {
-            background-color: #000 !important;
-            color: #fff !important;
-            border: 2px solid #fff !important;
-        }
-        .high-contrast input:focus, 
-        .high-contrast select:focus {
-            outline: 3px solid #00ffff !important;
-            box-shadow: 0 0 8px #00ffff !important;
-        }
-        .high-contrast .btn-submit {
-            background-color: #0000aa !important;
-            color: #ffffff !important;
-            border: 2px solid #ffffff !important;
-            font-weight: bold !important;
-        }
-        .high-contrast .btn-submit:hover {
-            background-color: #00aaaa !important;
-            color: #000000 !important;
-            box-shadow: 0 0 5px #ffffff !important;
-        }
-        .high-contrast .contrast-selector, 
-        .high-contrast .font-selector {
-            border: 2px solid #fff !important;
-            padding: 10px !important;
-            margin: 5px !important;
-        }
-        .high-contrast .accessibility-controls {
-            background-color: #333 !important;
-            border: 2px solid #fff !important;
-        }
-        .high-contrast .emphasize {
-            background-color: #333 !important;
-            border-left: 4px solid #ffff00 !important;
         }
         .dyslexic-font {
             font-family: 'OpenDyslexic', Arial, sans-serif !important;
@@ -305,14 +199,6 @@
                     <option value="default">Default Font</option>
                     <option value="dyslexic">OpenDyslexic (Dyslexia-friendly)</option>
                 </select>
-            </div>
-            <div class="contrast-selector">
-                <label for="contrast-toggle"><i class="fas fa-adjust"></i> High Contrast:</label>
-                <input type="checkbox" id="contrast-toggle" onchange="toggleContrast(this.checked)" style="width: 30px; height: 18px;">
-                <span id="contrast-status" style="margin-left: 10px; font-weight: bold;"></span>
-                <div style="width: 100%; margin-top: 5px; font-size: 0.85em; color: #666;">
-                    <i class="fas fa-info-circle"></i> Enables strong visual contrast for better readability
-                </div>
             </div>
         </div>
         
@@ -505,24 +391,6 @@
             localStorage.setItem('deepflow_font_preference', fontType);
         }
 
-        function toggleContrast(isHighContrast) {
-            const bodyElement = document.getElementById('body-element');
-            const statusElement = document.getElementById('contrast-status');
-            
-            if (isHighContrast) {
-                bodyElement.classList.add('high-contrast');
-                statusElement.innerText = "ON";
-                statusElement.style.color = "#00ff00";
-            } else {
-                bodyElement.classList.remove('high-contrast');
-                statusElement.innerText = "OFF";
-                statusElement.style.color = "";
-            }
-            
-            // Save preference to localStorage
-            localStorage.setItem('deepflow_contrast_preference', isHighContrast ? 'high' : 'normal');
-        }
-        
         function switchTab(tabName) {
             // Hide all tab contents
             const tabContents = document.querySelectorAll('.tab-content');
@@ -546,17 +414,6 @@
             if (savedFont) {
                 document.getElementById('font-select').value = savedFont;
                 changeFont(savedFont);
-            }
-            
-            const statusElement = document.getElementById('contrast-status');
-            const savedContrast = localStorage.getItem('deepflow_contrast_preference');
-            if (savedContrast === 'high') {
-                document.getElementById('contrast-toggle').checked = true;
-                toggleContrast(true);
-                statusElement.innerText = "ON";
-                statusElement.style.color = "#00ff00";
-            } else {
-                statusElement.innerText = "OFF";
             }
         });
     </script>

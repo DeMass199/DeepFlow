@@ -63,7 +63,6 @@
             <h2><i class="fas fa-universal-access"></i> Accessibility Commitment</h2>
             <ul>
                 <li>OpenDyslexic font support for improved readability</li>
-                <li>High contrast mode for visual accessibility</li>
                 <li>Focus-friendly interface designed for ADHD users</li>
                 <li>Non-disruptive notifications and controls</li>
             </ul>
@@ -84,10 +83,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             if (localStorage.getItem('dyslexicFont') === 'true') {
                 document.body.classList.add('dyslexic-font');
-            }
-            
-            if (localStorage.getItem('highContrast') === 'true') {
-                document.body.classList.add('high-contrast');
             }
         });
     </script>

@@ -764,31 +764,6 @@
     background-color: var(--neutral-400);
 }
 
-/* High contrast mode */
-.high-contrast {
-    --primary: #1e88e5;
-    --primary-dark: #0d47a1;
-    --primary-light: #64b5f6;
-    --success: #00c853;
-    --warning: #ffd600;
-    --danger: #d50000;
-}
-
-.high-contrast .dashboard-header h1,
-.high-contrast .timer-container h2,
-.high-contrast .timer-name,
-.high-contrast label {
-    color: black;
-}
-
-.high-contrast.dark-mode .dashboard-header h1,
-.high-contrast.dark-mode .timer-container h2,
-.high-contrast.dark-mode .timer-name,
-.high-contrast.dark-mode label,
-.high-contrast.dark-mode .btn-link {
-    color: white;
-}
-
 /* Dyslexic font mode */
 .dyslexic-font * {
     font-family: "OpenDyslexic", var(--font-sans) !important;
