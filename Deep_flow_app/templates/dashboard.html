@@ -12,6 +12,113 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom styles for the timer form layout -->
+    <style>
+        .timer-form-flex {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .timer-form-left {
+            flex: 1;
+            min-width: 250px;
+            order: 1; /* Display on the left */
+        }
+        
+        .timer-form-right {
+            flex: 2;
+            min-width: 300px;
+            order: 2; /* Display on the right */
+        }
+        
+        .timer-form-left h3 {
+            margin-top: 0;
+            color: #4f46e5;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .timer-advanced-settings {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        
+        /* Duration input and dropdown styles */
+        .duration-input-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .time-input-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .time-input-group input[type="number"] {
+            width: 60px;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background-color: #f9fafb;
+            color: #4b5563;
+            font-size: 0.9rem;
+        }
+        
+        .time-input-group label {
+            color: #6b7280;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        
+        .duration-input-container select {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background-color: #f9fafb;
+            color: #4b5563;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .duration-input-container select:hover {
+            border-color: #818cf8;
+        }
+        
+        .duration-input-container select:focus {
+            border-color: #4f46e5;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .timer-form-flex {
+                flex-direction: column;
+            }
+            
+            .timer-form-left {
+                order: 2; /* Move to bottom on mobile */
+            }
+            
+            .timer-form-right {
+                order: 1; /* Move to top on mobile */
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard-container">
@@ -62,40 +169,67 @@
                 <h2><i class="fas fa-plus-circle"></i> New Timer</h2>
                 <div class="timer-form">
                     <form action="{{ url_for('add_timer') }}" method="post">
-                        <div class="form-group">
-                            <label for="name">Timer Name:</label>
-                            <input type="text" id="name" name="name" placeholder="e.g., Study Session, Deep Work" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="duration">Duration (minutes):</label>
-                            <input type="number" id="duration" name="duration" min="30" max="240" value="90" required>
-                            <small class="text-muted">For long focus sessions (30-240 minutes)</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <button type="button" id="advanced-settings-toggle" class="btn btn-link">Show Advanced Settings</button>
-                            <div id="advanced-timer-settings" class="timer-advanced-settings hidden">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enable-checkin" name="enable_checkin" checked>
-                                    <label for="enable-checkin">Enable mid-session check-in</label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enable-reentry" name="enable_reentry" checked>
-                                    <label for="enable-reentry">Enable Re-Entry Mode after session</label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enable-energy-log" name="enable_energy_log" checked>
-                                    <label for="enable-energy-log">Track energy levels</label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enable-sound" name="enable_sound">
-                                    <label for="enable-sound">Play background sounds</label>
+                        <div class="timer-form-flex">
+                            <!-- Advanced Settings on the Left -->
+                            <div class="timer-form-left">
+                                <h3>Advanced Settings</h3>
+                                <div id="advanced-timer-settings" class="timer-advanced-settings">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="enable-checkin" name="enable_checkin" checked>
+                                        <label for="enable-checkin">Enable mid-session check-in</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="enable-reentry" name="enable_reentry" checked>
+                                        <label for="enable-reentry">Enable Re-Entry Mode after session</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="enable-energy-log" name="enable_energy_log" checked>
+                                        <label for="enable-energy-log">Track energy levels</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="enable-sound" name="enable_sound">
+                                        <label for="enable-sound">Play background sounds</label>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <!-- Main Timer Settings on the Right -->
+                            <div class="timer-form-right">
+                                <div class="form-group">
+                                    <label for="name">Timer Name:</label>
+                                    <input type="text" id="name" name="name" placeholder="e.g., Study Session, Deep Work" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="duration">Duration:</label>
+                                    <div class="duration-input-container">
+                                        <div class="time-input-group">
+                                            <input type="number" id="duration-hours" min="0" max="4" value="1" required>
+                                            <label for="duration-hours">hours</label>
+                                        </div>
+                                        <div class="time-input-group">
+                                            <input type="number" id="duration-minutes" min="0" max="59" value="30" step="1" required>
+                                            <label for="duration-minutes">minutes</label>
+                                        </div>
+                                        <!-- Hidden input to store total minutes for form submission -->
+                                        <input type="hidden" id="duration" name="duration" value="90">
+                                        <select id="duration-dropdown" onchange="updateDurationFromDropdown(this.value);">
+                                            <option value="30">30 minutes</option>
+                                            <option value="60">1 hour</option>
+                                            <option value="90" selected>1 hour 30 min</option>
+                                            <option value="120">2 hours</option>
+                                            <option value="150">2 hours 30 min</option>
+                                            <option value="180">3 hours</option>
+                                            <option value="210">3 hours 30 min</option>
+                                            <option value="240">4 hours</option>
+                                        </select>
+                                    </div>
+                                    <small class="text-muted">Set your focus session length (30 minutes - 4 hours)</small>
+                                </div>
+                                <button type="submit" class="btn btn-start">
+                                    <i class="fas fa-plus"></i> Add Timer
+                                </button>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-start">
-                            <i class="fas fa-plus"></i> Add Timer
-                        </button>
                     </form>
                 </div>
             </div>
@@ -109,7 +243,17 @@
                             <div class="timer-item {% if timer[6] %}timer-running{% else %}timer-stopped{% endif %}" data-timer-id="{{ timer[0] }}">
                                 <div class="timer-details">
                                     <h3 class="timer-name">{{ timer[2] }}</h3>
-                                    <p class="timer-duration"><i class="fas fa-stopwatch"></i> {{ timer[3] // 60 }} minutes</p>
+                                    <p class="timer-duration"><i class="fas fa-stopwatch"></i> 
+                                    {% set total_minutes = timer[3] // 60 %}
+                                    {% set hours = (total_minutes // 60) %}
+                                    {% set minutes = (total_minutes % 60) %}
+                                    {% if hours > 0 %}
+                                        {{ hours }} hour{% if hours != 1 %}s{% endif %}
+                                        {% if minutes > 0 %} {{ minutes }} min{% endif %}
+                                    {% else %}
+                                        {{ minutes }} minutes
+                                    {% endif %}
+                                    </p>
                                     {% if timer[4] %}
                                         <p><i class="fas fa-play"></i> Started: {{ timer[4] }}</p>
                                     {% endif %}
@@ -177,8 +321,8 @@
 
             <!-- Energy Logs Section -->
             <div class="timer-container energy-log-container">
-                <h2><i class="fas fa-bolt"></i> Energy Insights</h2>
-                <p>Track how your energy levels change during focus sessions.</p>
+                <h2><i class="fas fa-bolt"></i> Your Energy Insights</h2>
+                <p>Track how your energy levels change during your personal focus sessions.</p>
                 
                 <div class="energy-insights">
                     <canvas id="energy-chart"></canvas>
@@ -252,17 +396,62 @@
                     localStorage.setItem('dyslexicFont', 'false');
                 }
             });
+             // Advanced settings are always visible now
+            // No need for a toggle button
             
-            // Advanced settings toggle
-            const advancedSettingsToggle = document.getElementById('advanced-settings-toggle');
-            const advancedSettings = document.getElementById('advanced-timer-settings');
+            // Duration input and dropdown synchronization
+            const durationHoursInput = document.getElementById('duration-hours');
+            const durationMinutesInput = document.getElementById('duration-minutes');
+            const durationInput = document.getElementById('duration');
+            const durationDropdown = document.getElementById('duration-dropdown');
             
-            advancedSettingsToggle.addEventListener('click', function() {
-                advancedSettings.classList.toggle('hidden');
-                this.textContent = advancedSettings.classList.contains('hidden') ? 
-                    'Show Advanced Settings' : 'Hide Advanced Settings';
-            });
+            // Function to update the hidden duration input with total minutes
+            function updateTotalDuration() {
+                const hours = parseInt(durationHoursInput.value) || 0;
+                const minutes = parseInt(durationMinutesInput.value) || 0;
+                const totalMinutes = (hours * 60) + minutes;
+                
+                // Enforce minimum 30 minutes
+                if (totalMinutes < 30) {
+                    if (hours === 0) {
+                        durationMinutesInput.value = 30;
+                        durationInput.value = 30;
+                    } else {
+                        durationInput.value = totalMinutes;
+                    }
+                } else if (totalMinutes > 240) {
+                    // Enforce maximum 4 hours
+                    durationHoursInput.value = 4;
+                    durationMinutesInput.value = 0;
+                    durationInput.value = 240;
+                } else {
+                    durationInput.value = totalMinutes;
+                }
+                
+                // Update dropdown if value matches a preset
+                if ([30, 60, 90, 120, 150, 180, 210, 240].includes(parseInt(durationInput.value))) {
+                    durationDropdown.value = durationInput.value;
+                }
+            }
             
+            // Function to update the hours and minutes inputs from dropdown
+            function updateDurationFromDropdown(value) {
+                const totalMinutes = parseInt(value);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                
+                durationHoursInput.value = hours;
+                durationMinutesInput.value = minutes;
+                durationInput.value = totalMinutes;
+            }
+            
+            // Set up event listeners
+            durationHoursInput.addEventListener('input', updateTotalDuration);
+            durationMinutesInput.addEventListener('input', updateTotalDuration);
+            
+            // Initialize
+            updateTotalDuration();
+
             // Load Flow Shelf items
             loadFlowShelfItems();
             
@@ -486,8 +675,33 @@
             fetch('/get_energy_logs')
                 .then(response => response.json())
                 .then(data => {
+                    const energyLogsContainer = document.querySelector('.energy-log-container');
+                    
                     if (data.logs && data.logs.length > 0) {
                         renderEnergyChart(data.logs);
+                        
+                        // Show the chart and hide any no-data message
+                        document.getElementById('energy-chart').style.display = 'block';
+                        const existingMessage = document.getElementById('no-energy-logs');
+                        if (existingMessage) {
+                            existingMessage.remove();
+                        }
+                    } else {
+                        // Create a "no data" message if it doesn't exist
+                        if (!document.getElementById('no-energy-logs')) {
+                            const noDataMessage = document.createElement('div');
+                            noDataMessage.id = 'no-energy-logs';
+                            noDataMessage.className = 'empty-state';
+                            noDataMessage.innerHTML = `
+                                <i class="fas fa-chart-line"></i>
+                                <h3>No Energy Data Yet</h3>
+                                <p>Complete focus sessions with energy tracking to see your personal insights.</p>
+                            `;
+                            
+                            // Hide the chart and show the message
+                            document.getElementById('energy-chart').style.display = 'none';
+                            document.querySelector('.energy-insights').appendChild(noDataMessage);
+                        }
                     }
                 })
                 .catch(error => console.error('Error loading energy logs:', error));
@@ -547,7 +761,7 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Date'
+                                text: 'Your Session Dates'
                             }
                         },
                         y: {
@@ -555,7 +769,7 @@
                             max: 10,
                             title: {
                                 display: true,
-                                text: 'Energy Level'
+                                text: 'Your Energy Level'
                             }
                         }
                     },
@@ -565,7 +779,18 @@
                                 label: function(context) {
                                     const data = context.raw;
                                     return `${context.dataset.label}: ${data.y}/10 (${data.stage})`;
+                                },
+                                title: function(context) {
+                                    const date = new Date(context[0].parsed.x);
+                                    return `Your session on ${date.toLocaleDateString()}`;
                                 }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '{{ session["username"] }}\'s Personal Energy Patterns',
+                            font: {
+                                size: 16
                             }
                         }
                     }
