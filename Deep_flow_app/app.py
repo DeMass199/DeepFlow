@@ -134,7 +134,8 @@ def init_db():
                 duration INTEGER NOT NULL, -- Duration in seconds
                 start_time TEXT DEFAULT NULL,
                 end_time TEXT DEFAULT NULL,
-                is_running BOOLEAN NOT NULL DEFAULT 0,
+                paused_at TEXT DEFAULT NULL,
+                is_running INTEGER NOT NULL DEFAULT 0, -- 0: stopped, 1: running, 2: paused
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         """)
@@ -348,10 +349,16 @@ def add_timer():
         return redirect(url_for("dashboard"))
     
     try:
+        # Validate duration: only allow 30-240 minutes in 5-minute intervals
+        duration_int = int(duration)
+        if duration_int < 30 or duration_int > 240 or duration_int % 5 != 0:
+            logger.warning(f"Invalid duration value: {duration_int}. Setting to default (90 minutes).")
+            duration_int = 90  # Set to default 90 minutes if invalid
+        
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         # Convert minutes to seconds for storage
-        duration_seconds = int(duration) * 60
+        duration_seconds = duration_int * 60
         cursor.execute("""
             INSERT INTO timers (user_id, name, duration)
             VALUES (?, ?, ?)
@@ -359,6 +366,10 @@ def add_timer():
         conn.commit()
         conn.close()
         flash("Timer added successfully!", "success")
+    except (ValueError, TypeError) as e:
+        logger.error("Error with duration value: %s", str(e))
+        flash("Invalid duration format. Please try again.", "error")
+        return redirect(url_for("dashboard"))
     except sqlite3.Error as e:
         logger.error("Error adding timer: %s", str(e))
         flash("Failed to add timer.", "error")
@@ -386,7 +397,7 @@ def update_timer(timer_id):
     logger.debug(f"Received timer update request: timer_id={timer_id}, action={action}, request_type={'JSON' if request.is_json else 'form'}")
     
     # Validate action
-    if action not in ["start", "pause", "stop"]:
+    if action not in ["start", "pause", "resume", "stop"]:
         logger.warning(f"Invalid timer action requested: {action}")
         if request.is_json:
             return {"error": "Invalid action", "success": False}, 400
@@ -420,14 +431,22 @@ def update_timer(timer_id):
             """, (timer_id, session['user_id']))
             logger.debug(f"Started timer {timer_id}")
         elif action == "pause":
-            # For pause, we need to store the current state by setting a flag
-            # While keeping is_running = 1 since the timer is technically still active
+            # For pause, we store a special state by adding a pause_timestamp
+            # We'll keep is_running = 1 but add a 'paused_at' timestamp
             cursor.execute("""
                 UPDATE timers
-                SET is_running = 1
+                SET is_running = 2, paused_at = datetime('now', 'localtime')
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
             logger.debug(f"Paused timer {timer_id}")
+        elif action == "resume":
+            # Resume is similar to start, but we keep the original start_time
+            cursor.execute("""
+                UPDATE timers
+                SET is_running = 1, paused_at = NULL
+                WHERE id = ? AND user_id = ?
+            """, (timer_id, session['user_id']))
+            logger.debug(f"Resumed timer {timer_id}")
         elif action == "stop":
             cursor.execute("""
                 UPDATE timers
@@ -448,7 +467,7 @@ def update_timer(timer_id):
         is_running = row[0] if row else None
         
         # Make sure the database update worked as expected
-        expected_running = 1 if action in ["start", "pause"] else 0 if action == "stop" else None
+        expected_running = 1 if action in ["start", "resume"] else 2 if action == "pause" else 0 if action == "stop" else None
         if expected_running is not None and is_running != expected_running:
             logger.error(f"Timer update failed: expected is_running={expected_running}, got {is_running}")
             conn.close()
@@ -927,4 +946,4 @@ def privacy_user():
     return render_template("privacy_policy_user.html")
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5002)
+    app.run(debug=True, port=5003)

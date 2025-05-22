@@ -30,6 +30,11 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Timer Time Display - Hidden */
+.timer-time-display {
+    display: none; /* Hidden as per user request */
+}
+
 /* Button Colors */
 .btn-start {
     background-color: #28a745;
