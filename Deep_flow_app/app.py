@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates")  # Explicitly set the templates folder
-app.secret_key = os.getenv('SECRET_KEY', 'default_secret_key')
+app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # Ensure DB_PATH points to Deepflow.db
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Deepflow.db')
@@ -382,42 +382,95 @@ def update_timer(timer_id):
     else:
         action = request.form.get("action")  # 'start', 'pause', or 'stop'
     
+    # Log what we received
+    logger.debug(f"Received timer update request: timer_id={timer_id}, action={action}, request_type={'JSON' if request.is_json else 'form'}")
+    
+    # Validate action
+    if action not in ["start", "pause", "stop"]:
+        logger.warning(f"Invalid timer action requested: {action}")
+        if request.is_json:
+            return {"error": "Invalid action", "success": False}, 400
+        flash("Invalid timer action.", "error")
+        return redirect(url_for("dashboard"))
+    
+    logger.info(f"Updating timer {timer_id} with action: {action} for user {session['user_id']}")
+    
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
+        # First check if the timer exists and belongs to the user
+        cursor.execute("""
+            SELECT id FROM timers 
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        
+        if not cursor.fetchone():
+            logger.warning(f"Timer {timer_id} not found or doesn't belong to user {session['user_id']}")
+            if request.is_json:
+                return {"error": "Timer not found", "success": False}, 404
+            flash("Timer not found.", "error")
+            return redirect(url_for("dashboard"))
+        
         if action == "start":
             cursor.execute("""
                 UPDATE timers
-                SET is_running = 1, start_time = datetime('now')
+                SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
+            logger.debug(f"Started timer {timer_id}")
         elif action == "pause":
-            # For pause, we keep is_running as 1 but we'll handle the pause state in JS
-            # This ensures the timer still shows up as active in database
-            pass
+            # For pause, we need to store the current state by setting a flag
+            # While keeping is_running = 1 since the timer is technically still active
+            cursor.execute("""
+                UPDATE timers
+                SET is_running = 1
+                WHERE id = ? AND user_id = ?
+            """, (timer_id, session['user_id']))
+            logger.debug(f"Paused timer {timer_id}")
         elif action == "stop":
             cursor.execute("""
                 UPDATE timers
-                SET is_running = 0, end_time = datetime('now')
+                SET is_running = 0, end_time = datetime('now', 'localtime')
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
+            logger.debug(f"Stopped timer {timer_id}")
         
         conn.commit()
+        
+        # Check if the update was successful
+        cursor.execute("""
+            SELECT is_running FROM timers
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        
+        row = cursor.fetchone()
+        is_running = row[0] if row else None
+        
+        # Make sure the database update worked as expected
+        expected_running = 1 if action in ["start", "pause"] else 0 if action == "stop" else None
+        if expected_running is not None and is_running != expected_running:
+            logger.error(f"Timer update failed: expected is_running={expected_running}, got {is_running}")
+            conn.close()
+            if request.is_json:
+                return {"error": "Timer update failed", "success": False}, 500
+            flash("Failed to update timer status.", "error")
+            return redirect(url_for("dashboard"))
+        
         conn.close()
         
         if request.is_json:
-            return {"success": True, "message": "Timer updated"}, 200
+            return {"success": True, "message": f"Timer {action}ed successfully", "status": action, "timer_id": timer_id}, 200
         
-        flash("Timer updated successfully!", "success")
+        flash(f"Timer {action}ed successfully!", "success")
         return redirect(url_for("dashboard"))
     except sqlite3.Error as e:
-        logger.error("Error updating timer: %s", str(e))
+        logger.error("Database error updating timer: %s", str(e))
         
         if request.is_json:
-            return {"error": "Database error"}, 500
+            return {"error": f"Database error: {str(e)}", "success": False}, 500
         
-        flash("Failed to update timer.", "error")
+        flash(f"Failed to update timer: {str(e)}", "error")
         return redirect(url_for("dashboard"))
 
 
@@ -874,4 +927,4 @@ def privacy_user():
     return render_template("privacy_policy_user.html")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5002)

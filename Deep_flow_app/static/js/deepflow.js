@@ -132,9 +132,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const startBtn = timer.querySelector('.start-timer-btn');
             const pauseBtn = timer.querySelector('.pause-timer-btn');
             const stopBtn = timer.querySelector('.stop-timer-btn');
+            const resumeBtn = timer.querySelector('.resume-timer-btn');
             
             if (startBtn) startBtn.style.display = 'none';
             if (pauseBtn) pauseBtn.style.display = 'inline-flex';
+            if (resumeBtn) resumeBtn.style.display = 'none';
             
             // Add stop button if it doesn't exist
             if (!stopBtn) {
@@ -168,6 +170,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ action: 'start' }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    console.error('Error starting timer:', data.error);
+                    // Display an error message to the user
+                    showNotification('Error starting timer: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error starting timer:', error);
+                showNotification('Failed to start timer. Please try again.', 'error');
             });
         }
     }
@@ -238,6 +252,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ action: 'pause' }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Error pausing timer:', data.error);
+                showNotification('Error pausing timer: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error pausing timer:', error);
+            showNotification('Failed to pause timer. Timer functionality will continue locally.', 'error');
         });
     }
 
@@ -284,6 +309,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clear from paused timers
         delete pausedTimers[timerId];
+        
+        // Make AJAX request to update timer in database - we're restarting the timer so we send a 'start' action
+        fetch(`/update_timer/${timerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'start' }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Error resuming timer:', data.error);
+                showNotification('Error resuming timer: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error resuming timer:', error);
+            // Show notification but keep timer running locally
+            showNotification('Failed to update server, but timer is running locally.', 'error');
+        });
     }
 
     function stopTimer(timerId) {
@@ -333,6 +379,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 audioPlayer.pause();
                 audioPlayer.currentTime = 0;
             }
+            
+            // Make AJAX request to update timer in database
+            fetch(`/update_timer/${timerId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action: 'stop' }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    console.error('Error stopping timer:', data.error);
+                    showNotification('Error stopping timer: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error stopping timer:', error);
+                showNotification('Failed to update timer status on server.', 'error');
+            });
             
             // Log ending energy if enabled (display this first)
             const energyLoggingEnabled = document.getElementById('enable-energy-log')?.checked;
@@ -1372,4 +1438,217 @@ document.addEventListener('DOMContentLoaded', function() {
         
         return timerItem;
     }
+
+    // Simple notification function to show status messages to users
+    function showNotification(message, type = 'info') {
+        // Create notification container if it doesn't exist
+        let notificationArea = document.getElementById('notification-area');
+        if (!notificationArea) {
+            notificationArea = document.createElement('div');
+            notificationArea.id = 'notification-area';
+            notificationArea.style.position = 'fixed';
+            notificationArea.style.bottom = '10px';
+            notificationArea.style.right = '10px';
+            notificationArea.style.zIndex = '9999';
+            document.body.appendChild(notificationArea);
+        }
+        
+        // Create the notification element
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.style.padding = '10px 15px';
+        notification.style.marginBottom = '10px';
+        notification.style.borderRadius = '4px';
+        notification.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+        notification.style.transition = 'all 0.3s ease';
+        
+        // Style based on type
+        if (type === 'error') {
+            notification.style.backgroundColor = '#ff5252';
+            notification.style.color = 'white';
+        } else if (type === 'success') {
+            notification.style.backgroundColor = '#4CAF50';
+            notification.style.color = 'white';
+        } else {
+            notification.style.backgroundColor = '#2196F3';
+            notification.style.color = 'white';
+        }
+        
+        notification.textContent = message;
+        
+        // Add to notification area
+        notificationArea.appendChild(notification);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 5000);
+    }
+
+    // Function to check timer status when page loads
+    function checkTimerStatus() {
+        document.querySelectorAll('.timer-item').forEach(timer => {
+            const timerId = timer.getAttribute('data-timer-id');
+            const isRunning = timer.getAttribute('data-running') === '1';
+            const duration = parseInt(timer.getAttribute('data-duration'));
+            const startTime = timer.getAttribute('data-start-time');
+            const endTime = timer.getAttribute('data-end-time');
+            
+            // Check if this timer has an end time (which would mean it's stopped)
+            const hasEndTimeDisplay = timer.querySelector('p i.fa-stop') !== null;
+            const hasEndTimeAttr = endTime && endTime.trim() !== '';
+            
+            // If the timer has an end time, it should never be running
+            if (hasEndTimeAttr || hasEndTimeDisplay) {
+                console.log(`Timer ${timerId} has an end time, ensuring it stays stopped`);
+                
+                // Update data-running attribute to ensure consistency
+                timer.setAttribute('data-running', '0');
+                
+                // Update UI to show timer is stopped
+                timer.classList.remove('timer-running');
+                timer.classList.add('timer-stopped');
+                
+                // Hide pause/resume buttons, show start button
+                const startBtn = timer.querySelector('.start-timer-btn');
+                const pauseBtn = timer.querySelector('.pause-timer-btn');
+                const resumeBtn = timer.querySelector('.resume-timer-btn');
+                const stopBtn = timer.querySelector('.stop-timer-btn');
+                
+                if (startBtn) startBtn.style.display = 'inline-flex';
+                if (pauseBtn) pauseBtn.style.display = 'none';
+                if (resumeBtn) resumeBtn.style.display = 'none';
+                if (stopBtn) stopBtn.style.display = 'none';
+                
+                // Clear any running intervals for this timer
+                if (activeTimers[timerId]) {
+                    clearInterval(activeTimers[timerId]);
+                    delete activeTimers[timerId];
+                }
+                
+                return; // Skip the rest of the processing for this timer
+            }
+            
+            // Only process timers that are explicitly marked as running and have a start time
+            if (isRunning && startTime && !hasEndTimeDisplay) {
+                try {
+                    // Convert to timestamp - make sure to handle the date format properly
+                    let startTimestamp;
+                    try {
+                        // First try with Z (UTC)
+                        startTimestamp = new Date(startTime.replace(' ', 'T') + 'Z').getTime();
+                    } catch (e) {
+                        // If that fails, try without Z
+                        startTimestamp = new Date(startTime.replace(' ', 'T')).getTime();
+                    }
+                    
+                    const durationMs = duration * 60 * 1000; // Convert minutes to milliseconds
+                    const currentTime = Date.now();
+                    
+                    // Calculate remaining time
+                    const elapsedTime = currentTime - startTimestamp;
+                    const remainingTime = Math.max(0, durationMs - elapsedTime);
+                    
+                    if (remainingTime > 0) {
+                        // Timer should still be running
+                        console.log(`Resuming timer ${timerId} with ${Math.floor(remainingTime/1000)} seconds remaining`);
+                        
+                        // Set up UI
+                        timer.classList.add('timer-running');
+                        timer.classList.remove('timer-stopped');
+                        timer.classList.remove('timer-paused');
+                        
+                        // Create or update countdown display
+                        let countdownEl = timer.querySelector('.timer-countdown');
+                        if (!countdownEl) {
+                            countdownEl = document.createElement('div');
+                            countdownEl.className = 'timer-countdown';
+                            timer.querySelector('.timer-details').appendChild(countdownEl);
+                        }
+                        
+                        // Set end time and start countdown
+                        const endTimeMs = Date.now() + remainingTime;
+                        
+                        // Clear any existing intervals for this timer
+                        if (activeTimers[timerId]) {
+                            clearInterval(activeTimers[timerId]);
+                        }
+                        
+                        activeTimers[timerId] = setInterval(() => {
+                            updateCountdown(countdownEl, endTimeMs, timerId);
+                        }, 1000);
+                        
+                        // Update countdown immediately
+                        updateCountdown(countdownEl, endTimeMs, timerId);
+                        
+                        // Update the UI buttons
+                        const startBtn = timer.querySelector('.start-timer-btn');
+                        const pauseBtn = timer.querySelector('.pause-timer-btn');
+                        const stopBtn = timer.querySelector('.stop-timer-btn');
+                        
+                        if (startBtn) startBtn.style.display = 'none';
+                        if (pauseBtn) pauseBtn.style.display = 'inline-flex';
+                        
+                        // Add stop button if it doesn't exist
+                        if (!stopBtn) {
+                            const stopBtn = document.createElement('button');
+                            stopBtn.type = 'button';
+                            stopBtn.className = 'btn btn-stop stop-timer-btn';
+                            stopBtn.setAttribute('data-timer-id', timerId);
+                            stopBtn.innerHTML = '<i class="fas fa-stop"></i> Stop';
+                            stopBtn.addEventListener('click', function(e) {
+                                if (!e.target.closest('form')) {
+                                    e.preventDefault();
+                                    const timerId = this.getAttribute('data-timer-id');
+                                    stopTimer(timerId);
+                                }
+                            });
+                            timer.querySelector('.timer-controls').appendChild(stopBtn);
+                        } else {
+                            stopBtn.style.display = 'inline-flex';
+                        }
+                    } else {
+                        // Timer has expired, mark it as stopped on the server
+                        console.log(`Timer ${timerId} has expired, stopping it`);
+                        fetch(`/update_timer/${timerId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ action: 'stop' })
+                        })
+                        .then(() => {
+                            // Update UI to reflect stopped status
+                            timer.setAttribute('data-running', '0');
+                            timer.classList.remove('timer-running');
+                            timer.classList.add('timer-stopped');
+                            
+                            // Update button visibility
+                            const startBtn = timer.querySelector('.start-timer-btn');
+                            const pauseBtn = timer.querySelector('.pause-timer-btn');
+                            const stopBtn = timer.querySelector('.stop-timer-btn');
+                            
+                            if (startBtn) startBtn.style.display = 'inline-flex';
+                            if (pauseBtn) pauseBtn.style.display = 'none';
+                            if (stopBtn) stopBtn.style.display = 'none';
+                            
+                            // Clear interval if it exists
+                            if (activeTimers[timerId]) {
+                                clearInterval(activeTimers[timerId]);
+                                delete activeTimers[timerId];
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error initializing timer ${timerId}:`, error);
+                }
+            }
+        });
+    }
+
+    // Check timer status when page loads
+    setTimeout(checkTimerStatus, 500); // Small delay to ensure DOM is fully loaded
 });
