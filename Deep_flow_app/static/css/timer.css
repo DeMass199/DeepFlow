@@ -1,13 +1,21 @@
 /* Timer state styles */
 .timer-countdown {
-    font-size: 1.2em;
+    font-size: 2em;
     font-weight: bold;
-    margin-top: 8px;
+    margin-top: 12px;
     color: #333;
+    border: 2px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 10px 15px;
+    display: inline-block;
+    background-color: #f8f9fa;
+    font-family: monospace; /* Use monospace for clear time display */
 }
 
 .timer-running .timer-countdown {
     color: #28a745;
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, 0.1);
 }
 
 .timer-paused .timer-countdown {
@@ -26,8 +34,14 @@
     100% { opacity: 1; }
 }
 
-.timer-running .timer-countdown {
-    animation: pulse 2s infinite;
+.timer-running {
+    border-left: 5px solid #28a745 !important;
+    box-shadow: 0 0 15px rgba(40, 167, 69, 0.2) !important;
+    background-color: rgba(40, 167, 69, 0.05);
+}
+
+.timer-paused {
+    border-left: 5px solid #ffc107 !important;
 }
 
 /* Resume button highlight */
@@ -39,4 +53,17 @@
 .resume-timer-btn:hover {
     transform: scale(1.05);
     box-shadow: 0 0 8px rgba(23, 162, 184, 0.8);
+}
+
+/* Highlight effect for active timer when clicked from fixed display */
+@keyframes highlight-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(79, 70, 229, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+
+.highlight-timer {
+    animation: highlight-pulse 1.5s ease-out;
+    border: 2px solid var(--primary);
+    border-radius: var(--radius);
 }

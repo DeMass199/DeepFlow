@@ -45,24 +45,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     const minutes = Math.floor((remainingSeconds % 3600) / 60);
                     const seconds = Math.floor(remainingSeconds % 60);
                     
-                    let timeString = '⏸️ Paused: ';
+                    // Just show the time clearly
+                    let timeString = '';
                     if (hours > 0) {
-                        timeString += `${hours}h `;
+                        timeString += `${hours}:`;
                     }
-                    timeString += `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s remaining`;
+                    timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                     
                     timeDisplay.textContent = timeString;
-                    
-                    // Also update the resume button time display
-                    const resumeTimeEl = document.getElementById(`resume-time-${timerId}`);
-                    if (resumeTimeEl) {
-                        let buttonTimeString = '';
-                        if (hours > 0) {
-                            buttonTimeString += `${hours}h `;
-                        }
-                        buttonTimeString += `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
-                        resumeTimeEl.textContent = `(${buttonTimeString})`;
-                    }
                 }
             }
         });
@@ -145,15 +135,32 @@ document.addEventListener('DOMContentLoaded', function() {
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
         
-        // Format the time display
+        // Format the time display in clear HH:MM:SS format
         let timeString = '';
         if (hours > 0) {
-            timeString += `${hours}h `;
+            timeString += `${hours}:`;
         }
-        timeString += `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+        timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         
+        // Update the timer card display with just the time
         countdownEl.textContent = timeString;
         
         return false;
+    }
+    
+    /**
+     * Get the name of a timer
+     * @param {string} timerId - ID of the timer
+     * @returns {string} - Name of the timer, or 'Timer' if not found
+     */
+    function getTimerName(timerId) {
+        const timerItem = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+        if (timerItem) {
+            const nameElement = timerItem.querySelector('.timer-name');
+            if (nameElement) {
+                return nameElement.textContent;
+            }
+        }
+        return 'Timer';
     }
 });

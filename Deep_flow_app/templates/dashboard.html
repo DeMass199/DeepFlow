@@ -597,17 +597,40 @@
         
         // Timer Functions
         function initializeTimers() {
+            // Initialize the global activeTimers object
+            if (!window.activeTimers) {
+                window.activeTimers = {};
+            }
+            
             document.querySelectorAll('.timer-countdown').forEach(timerEl => {
                 const timerId = timerEl.id.split('-')[1];
                 const durationSeconds = parseInt(timerEl.dataset.duration);
                 const startTime = new Date(timerEl.dataset.started.replace(' ', 'T'));
+                const timerItem = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
                 
-                updateTimerDisplay(timerEl, startTime, durationSeconds);
-                
-                // Update every second
-                setInterval(() => {
+                // Only set up countdown for currently running timers
+                if (timerItem && timerItem.classList.contains('timer-running')) {
                     updateTimerDisplay(timerEl, startTime, durationSeconds);
-                }, 1000);
+                    
+                    // Clear any existing interval for this timer
+                    if (window.activeTimers[timerId]) {
+                        clearInterval(window.activeTimers[timerId]);
+                    }
+                    
+                    // Start countdown interval for this timer
+                    window.activeTimers[timerId] = setInterval(() => {
+                        const currentTimerEl = document.querySelector(`#countdown-${timerId}`);
+                        const currentTimerItem = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+                        
+                        if (!currentTimerEl || !currentTimerItem || !currentTimerItem.classList.contains('timer-running')) {
+                            clearInterval(window.activeTimers[timerId]);
+                            delete window.activeTimers[timerId];
+                            return;
+                        }
+                        
+                        updateTimerDisplay(currentTimerEl, startTime, durationSeconds);
+                    }, 1000);
+                }
             });
             
             // Timer control buttons - these are now handled by onclick attributes
@@ -707,7 +730,11 @@
             const minutes = Math.floor((remainingSeconds % 3600) / 60);
             const seconds = remainingSeconds % 60;
             
-            const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            let timeString = '';
+            if (hours > 0) {
+                timeString += `${hours}:`;
+            }
+            timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             timerEl.querySelector('.time-display').textContent = timeString;
         }
         
@@ -771,6 +798,10 @@
                 timer.classList.remove('timer-stopped', 'timer-paused');
                 timer.setAttribute('data-running', '1'); // Explicitly set running state
                 
+                // Set the start time
+                const now = new Date();
+                timer.setAttribute('data-start-time', now.toISOString());
+                
                 // Toggle buttons
                 const startBtn = timer.querySelector('.start-timer-btn');
                 const pauseBtn = timer.querySelector('.pause-timer-btn');
@@ -788,9 +819,79 @@
                     countdownEl = document.createElement('div');
                     countdownEl.className = 'timer-countdown';
                     countdownEl.id = `countdown-${timerId}`;
-                    countdownEl.innerHTML = '<i class="fas fa-hourglass-half"></i> <span class="time-display">Starting...</span>';
+                    
+                    // Get duration from timer element data attribute (in seconds)
+                    const durationInSeconds = parseInt(timer.getAttribute('data-duration')) || 0;
+                    
+                    // Format the initial time display based on the duration
+                    const hours = Math.floor(durationInSeconds / 3600);
+                    const minutes = Math.floor((durationInSeconds % 3600) / 60);
+                    const seconds = durationInSeconds % 60;
+                    
+                    let timeString = '';
+                    if (hours > 0) {
+                        timeString += `${hours}:`;
+                    }
+                    timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    countdownEl.innerHTML = `<i class="fas fa-hourglass-half"></i> <span class="time-display">${timeString}</span>`;
+                    countdownEl.setAttribute('data-duration', durationInSeconds);
+                    countdownEl.setAttribute('data-started', now.toISOString());
                     timer.querySelector('.timer-details').appendChild(countdownEl);
+                } else {
+                    // Update existing countdown element
+                    const durationInSeconds = parseInt(timer.getAttribute('data-duration')) || 0;
+                    countdownEl.setAttribute('data-duration', durationInSeconds);
+                    countdownEl.setAttribute('data-started', now.toISOString());
                 }
+                
+                // Start the countdown interval
+                if (!window.activeTimers) {
+                    window.activeTimers = {};
+                }
+                
+                // Clear any existing interval for this timer
+                if (window.activeTimers[timerId]) {
+                    clearInterval(window.activeTimers[timerId]);
+                }
+                
+                // Start new countdown interval
+                window.activeTimers[timerId] = setInterval(() => {
+                    const timerElement = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+                    if (!timerElement || !timerElement.classList.contains('timer-running')) {
+                        clearInterval(window.activeTimers[timerId]);
+                        delete window.activeTimers[timerId];
+                        return;
+                    }
+                    
+                    const countdownElement = timerElement.querySelector('.timer-countdown');
+                    if (countdownElement) {
+                        const startTime = new Date(timerElement.getAttribute('data-start-time'));
+                        const duration = parseInt(countdownElement.getAttribute('data-duration'));
+                        const currentTime = new Date();
+                        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
+                        const remainingSeconds = Math.max(0, duration - elapsedSeconds);
+                        
+                        if (remainingSeconds <= 0) {
+                            // Timer finished
+                            countdownElement.querySelector('.time-display').textContent = "Time's up!";
+                            updateTimer(timerId, 'stop');
+                            return;
+                        }
+                        
+                        // Update display
+                        const hours = Math.floor(remainingSeconds / 3600);
+                        const minutes = Math.floor((remainingSeconds % 3600) / 60);
+                        const seconds = remainingSeconds % 60;
+                        
+                        let timeString = '';
+                        if (hours > 0) {
+                            timeString += `${hours}:`;
+                        }
+                        timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        countdownElement.querySelector('.time-display').textContent = timeString;
+                    }
+                }, 1000);
             } else if (action === 'pause') {
                 timer.classList.remove('timer-running');
                 timer.classList.add('timer-paused');
@@ -836,18 +937,19 @@
                                 const minutes = Math.floor((remainingSeconds % 3600) / 60);
                                 const seconds = remainingSeconds % 60;
                                 
-                                let timeString = '⏸️ Paused: ';
+                                let timeString = '';
                                 if (hours > 0) {
-                                    timeString += `${hours}h `;
+                                    timeString += `${hours}:`;
                                 }
-                                timeString += `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s remaining`;
+                                timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                                 
                                 timeDisplay.textContent = timeString;
                             } else {
-                                timeDisplay.textContent = '⏸️ Paused: Time expired';
+                                timeDisplay.textContent = '00:00';
                             }
                         } else {
-                            timeDisplay.textContent = '⏸️ Paused';
+                            // Show zeros if no time data available
+                            timeDisplay.textContent = '00:00';
                         }
                     }
                 }
@@ -856,6 +958,22 @@
                 timer.classList.remove('timer-paused');
                 timer.setAttribute('data-running', '1'); // Running state
                 
+                // Calculate new start time based on elapsed time before pause
+                const originalStartTime = timer.getAttribute('data-start-time');
+                const pausedAtTime = timer.getAttribute('data-paused-at');
+                const countdownEl = timer.querySelector('.timer-countdown');
+                
+                if (originalStartTime && pausedAtTime && countdownEl) {
+                    const originalStart = new Date(originalStartTime);
+                    const pausedAt = new Date(pausedAtTime);
+                    const elapsedBeforePause = Math.floor((pausedAt - originalStart) / 1000);
+                    
+                    // Set new start time as if timer started now minus elapsed time
+                    const now = new Date();
+                    const adjustedStartTime = new Date(now.getTime() - (elapsedBeforePause * 1000));
+                    timer.setAttribute('data-start-time', adjustedStartTime.toISOString());
+                }
+                
                 // Toggle buttons
                 const pauseBtn = timer.querySelector('.pause-timer-btn');
                 const resumeBtn = timer.querySelector('.resume-timer-btn');
@@ -863,23 +981,53 @@
                 if (pauseBtn) pauseBtn.style.display = 'inline-flex';
                 if (resumeBtn) resumeBtn.style.display = 'none';
                 
-                // Update countdown display
-                const countdownEl = timer.querySelector('.timer-countdown');
-                if (countdownEl) {
-                    const timeDisplay = countdownEl.querySelector('.time-display');
-                    if (timeDisplay) {
-                        // Get start time, duration and elapsed time
-                        const startTimeStr = timer.getAttribute('data-start-time') || countdownEl.getAttribute('data-started');
-                        const pausedAtStr = timer.getAttribute('data-paused-at') || countdownEl.getAttribute('data-paused');
-                        const duration = parseInt(countdownEl.getAttribute('data-duration') || '0', 10);
-                        
-                        if (startTimeStr && pausedAtStr && duration) {
-                            timeDisplay.textContent = 'Resuming timer...';
-                        } else {
-                            timeDisplay.textContent = 'Resuming...';
-                        }
-                    }
+                // Start the countdown interval again
+                if (!window.activeTimers) {
+                    window.activeTimers = {};
                 }
+                
+                // Clear any existing interval for this timer
+                if (window.activeTimers[timerId]) {
+                    clearInterval(window.activeTimers[timerId]);
+                }
+                
+                // Start new countdown interval
+                window.activeTimers[timerId] = setInterval(() => {
+                    const timerElement = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+                    if (!timerElement || !timerElement.classList.contains('timer-running')) {
+                        clearInterval(window.activeTimers[timerId]);
+                        delete window.activeTimers[timerId];
+                        return;
+                    }
+                    
+                    const countdownElement = timerElement.querySelector('.timer-countdown');
+                    if (countdownElement) {
+                        const startTime = new Date(timerElement.getAttribute('data-start-time'));
+                        const duration = parseInt(countdownElement.getAttribute('data-duration'));
+                        const currentTime = new Date();
+                        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
+                        const remainingSeconds = Math.max(0, duration - elapsedSeconds);
+                        
+                        if (remainingSeconds <= 0) {
+                            // Timer finished
+                            countdownElement.querySelector('.time-display').textContent = "Time's up!";
+                            updateTimer(timerId, 'stop');
+                            return;
+                        }
+                        
+                        // Update display
+                        const hours = Math.floor(remainingSeconds / 3600);
+                        const minutes = Math.floor((remainingSeconds % 3600) / 60);
+                        const seconds = remainingSeconds % 60;
+                        
+                        let timeString = '';
+                        if (hours > 0) {
+                            timeString += `${hours}:`;
+                        }
+                        timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        countdownElement.querySelector('.time-display').textContent = timeString;
+                    }
+                }, 1000);
             } else if (action === 'stop') {
                 // Save the current time for the end time attribute
                 const now = new Date();
