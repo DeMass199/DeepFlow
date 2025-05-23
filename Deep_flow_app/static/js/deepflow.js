@@ -287,13 +287,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Set end time and start countdown
-        const endTime = Date.now() + remainingTime;
+        // Adjust endTime to avoid adding extra time when resuming
+        const adjustedEndTime = Date.now() + remainingTime - (Date.now() - pausedTimers[timerId].pausedAt);
+
         activeTimers[timerId] = setInterval(() => {
-            updateCountdown(countdownEl, endTime, timerId);
+            updateCountdown(countdownEl, adjustedEndTime, timerId);
         }, 1000);
         
         // Update countdown immediately
-        updateCountdown(countdownEl, endTime, timerId);
+        updateCountdown(countdownEl, adjustedEndTime, timerId);
         
         // Toggle buttons
         const pauseBtn = timer.querySelector('.pause-timer-btn');
@@ -1362,8 +1364,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="timer-details">
                 <h3>${timerData.name}</h3>
                 <p><i class="fas fa-stopwatch"></i> ${durationMinutes} minutes</p>
-                ${timerData.startTime ? `<p><i class="fas fa-play"></i> Started: ${timerData.startTime}</p>` : ''}
-                ${timerData.endTime ? `<p><i class="fas fa-stop"></i> Ended: ${timerData.endTime}</p>` : ''}
                 ${timerData.isRunning ? `<div class="timer-countdown"></div>` : ''}
             </div>
             <div class="timer-controls">

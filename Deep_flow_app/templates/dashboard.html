@@ -247,15 +247,7 @@
                                         {{ minutes }} minutes
                                     {% endif %}
                                     </p>
-                                    {% if timer[4] %}
-                                        <p><i class="fas fa-play"></i> Started: {{ timer[4] }}</p>
-                                    {% endif %}
-                                    {% if timer[5] %}
-                                        <p><i class="fas fa-stop"></i> Ended: {{ timer[5] }}</p>
-                                    {% endif %}
-                                    {% if timer[6] %}
-                                        <p><i class="fas fa-pause"></i> Paused: {{ timer[6] }}</p>
-                                    {% endif %}
+
                                     {% if timer[7] == 1 %}
                                         <div class="timer-countdown" id="countdown-{{ timer[0] }}" data-duration="{{ timer[3] }}" data-started="{{ timer[4] }}">
                                             <i class="fas fa-hourglass-half"></i> <span class="time-display">Loading...</span>
@@ -350,9 +342,6 @@
                     </div>
                     <div class="sound-option" data-sound="rain">
                         <i class="fas fa-cloud-rain"></i> Rain
-                    </div>
-                    <div class="sound-option" data-sound="nature">
-                        <i class="fas fa-tree"></i> Nature
                     </div>
                     <div class="sound-option" data-sound="none">
                         <i class="fas fa-volume-mute"></i> No Sound
