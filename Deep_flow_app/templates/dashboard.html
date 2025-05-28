@@ -292,7 +292,7 @@
             <!-- Flow Shelf Section -->
             <div class="timer-container flow-shelf">
                 <h2><i class="fas fa-bookmark"></i> Flow Shelf</h2>
-                <p>Quick thoughts to remember for later - add distracting ideas here to stay focused.</p>
+                <p>Quick thoughts to remember for later - add some reminders and stay focused.</p>
                 
                 <div class="flow-shelf-input">
                     <input type="text" id="flow-shelf-text" placeholder="Add a thought to your flow shelf...">
@@ -464,12 +464,8 @@
             document.addEventListener('click', function(e) {
                 // Check if the clicked element is a start button
                 if (e.target.closest('.start-timer-btn')) {
-                    e.preventDefault();
-                    const button = e.target.closest('.start-timer-btn');
-                    const timerId = button.getAttribute('data-timer-id');
-                    
-                    console.log(`Direct event handler: Starting timer ${timerId}`);
-                    updateTimer(timerId, 'start');
+                    // Let deepflow.js handle the start button with energy insight
+                    return;
                 }
                 
                 // Check if the clicked element is a stop button

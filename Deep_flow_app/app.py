@@ -323,11 +323,21 @@ def dashboard():
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+
+        # Stop paused timers and reset them to show original duration
+        cursor.execute("""
+            UPDATE timers
+            SET is_running = 0, paused_at = NULL, start_time = NULL, end_time = NULL
+            WHERE user_id = ? AND is_running = 2
+        """, (user_id,))
+        conn.commit()
+
+        # Fetch updated timers
         cursor.execute("SELECT * FROM timers WHERE user_id = ?", (user_id,))
         timers = cursor.fetchall()
         conn.close()
     except sqlite3.Error as e:
-        logger.error("Error fetching timers: %s", str(e))
+        logger.error("Error fetching or updating timers: %s", str(e))
         flash("Failed to load timers.", "error")
     
     return render_template("dashboard.html", timers=timers)  # Render dashboard.html
@@ -352,7 +362,7 @@ def add_timer():
         # Validate duration: only allow 30-240 minutes in 5-minute intervals
         duration_int = int(duration)
         if duration_int < 30 or duration_int > 240 or duration_int % 5 != 0:
-            logger.warning(f"Invalid duration value: {duration_int}. Setting to default (90 minutes).")
+            logger.warning("Invalid duration value: %d. Setting to default (90 minutes).", duration_int)
             duration_int = 90  # Set to default 90 minutes if invalid
         
         conn = sqlite3.connect(DB_PATH)
@@ -394,17 +404,17 @@ def update_timer(timer_id):
         action = request.form.get("action")  # 'start', 'pause', or 'stop'
     
     # Log what we received
-    logger.debug(f"Received timer update request: timer_id={timer_id}, action={action}, request_type={'JSON' if request.is_json else 'form'}")
+    logger.debug("Received timer update request: timer_id=%d, action=%s, request_type=%s", timer_id, action, 'JSON' if request.is_json else 'form')
     
     # Validate action
     if action not in ["start", "pause", "resume", "stop"]:
-        logger.warning(f"Invalid timer action requested: {action}")
+        logger.warning("Invalid timer action requested: %s", action)
         if request.is_json:
             return {"error": "Invalid action", "success": False}, 400
         flash("Invalid timer action.", "error")
         return redirect(url_for("dashboard"))
     
-    logger.info(f"Updating timer {timer_id} with action: {action} for user {session['user_id']}")
+    logger.info("Updating timer %d with action: %s for user %d", timer_id, action, session['user_id'])
     
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -417,7 +427,7 @@ def update_timer(timer_id):
         """, (timer_id, session['user_id']))
         
         if not cursor.fetchone():
-            logger.warning(f"Timer {timer_id} not found or doesn't belong to user {session['user_id']}")
+            logger.warning("Timer %d not found or doesn't belong to user %d", timer_id, session['user_id'])
             if request.is_json:
                 return {"error": "Timer not found", "success": False}, 404
             flash("Timer not found.", "error")
@@ -429,7 +439,7 @@ def update_timer(timer_id):
                 SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
-            logger.debug(f"Started timer {timer_id}")
+            logger.debug("Started timer %d", timer_id)
         elif action == "pause":
             # For pause, we store a special state by adding a pause_timestamp
             # We'll keep is_running = 1 but add a 'paused_at' timestamp
@@ -438,7 +448,7 @@ def update_timer(timer_id):
                 SET is_running = 2, paused_at = datetime('now', 'localtime')
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
-            logger.debug(f"Paused timer {timer_id}")
+            logger.debug("Paused timer %d", timer_id)
         elif action == "resume":
             # Resume is similar to start, but we keep the original start_time
             cursor.execute("""
@@ -446,14 +456,14 @@ def update_timer(timer_id):
                 SET is_running = 1, paused_at = NULL
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
-            logger.debug(f"Resumed timer {timer_id}")
+            logger.debug("Resumed timer %d", timer_id)
         elif action == "stop":
             cursor.execute("""
                 UPDATE timers
                 SET is_running = 0, end_time = datetime('now', 'localtime')
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
-            logger.debug(f"Stopped timer {timer_id}")
+            logger.debug("Stopped timer %d", timer_id)
         
         conn.commit()
         
@@ -469,7 +479,7 @@ def update_timer(timer_id):
         # Make sure the database update worked as expected
         expected_running = 1 if action in ["start", "resume"] else 2 if action == "pause" else 0 if action == "stop" else None
         if expected_running is not None and is_running != expected_running:
-            logger.error(f"Timer update failed: expected is_running={expected_running}, got {is_running}")
+            logger.error("Timer update failed: expected is_running=%d, got %d", expected_running, is_running)
             conn.close()
             if request.is_json:
                 return {"error": "Timer update failed", "success": False}, 500

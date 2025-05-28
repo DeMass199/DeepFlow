@@ -29,8 +29,36 @@ document.addEventListener('DOMContentLoaded', function() {
             button.addEventListener('click', function(e) {
                 if (!e.target.closest('form')) {
                     e.preventDefault();
+
+                    // Prompt for energy insight
+                    const energyLevel = prompt("Before starting the timer, how is your energy level? (1-10)");
+
+                    // Validate the input
+                    if (energyLevel === null || energyLevel.trim() === "" || isNaN(energyLevel) || energyLevel < 1 || energyLevel > 10) {
+                        alert("Please provide a valid energy level between 1 and 10.");
+                        return;
+                    }
+
                     const timerId = this.getAttribute('data-timer-id');
                     const timerDuration = parseInt(this.getAttribute('data-duration'));
+
+                    // Optionally, send the energy level to the server
+                    fetch(`/log_energy`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            timer_id: timerId,
+                            stage: 'start',
+                            energy_level: energyLevel
+                        })
+                    }).then(response => {
+                        if (!response.ok) {
+                            console.error("Failed to log energy level.");
+                        }
+                    });
+
                     startTimer(timerId, timerDuration);
                 }
             });
@@ -243,6 +271,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Pause the sound
         if (audioPlayer) {
             audioPlayer.pause();
+        }
+        
+        // Show break confirmation dialog
+        const isBreak = confirm("Are you having a break?");
+        if (isBreak) {
+            // Focus on the flow shelf text box
+            const flowShelfTextBox = document.getElementById('flow-shelf-text');
+            if (flowShelfTextBox) {
+                flowShelfTextBox.focus();
+                flowShelfTextBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
         
         // Make AJAX request to update timer in database
