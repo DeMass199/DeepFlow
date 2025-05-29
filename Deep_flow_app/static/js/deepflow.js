@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFlowShelf();
     initializeSoundPlayer();
     initializeEnergyLog();
+    initializeEnergyInsights();
     
     // Initialize timer toggle functionality if available
     if (window.timerToggle && typeof window.timerToggle.enhanceTimerControls === 'function') {
@@ -1368,6 +1369,201 @@ document.addEventListener('DOMContentLoaded', function() {
         returnAudio.play().catch(() => { /* Handle silently */ });
     }
 
+    // Energy Insights Modal Functionality
+    function initializeEnergyInsights() {
+        const modal = document.getElementById('energy-insights-modal');
+        const openBtn = document.getElementById('energy-insights-btn');
+        const closeBtn = document.getElementById('close-insights-modal');
+        const cancelBtn = document.getElementById('cancel-insights-btn');
+        const form = document.getElementById('energy-insights-form');
+        
+        if (!modal || !openBtn || !form) return;
+        
+        // Open modal
+        openBtn.addEventListener('click', function() {
+            modal.style.display = 'block';
+            resetForm();
+        });
+        
+        // Close modal
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        
+        // Handle slider value updates
+        document.querySelectorAll('.energy-slider').forEach(slider => {
+            const valueSpan = slider.parentElement.querySelector('.energy-value');
+            
+            slider.addEventListener('input', function() {
+                valueSpan.textContent = this.value;
+            });
+        });
+        
+        // Handle mood selection
+        document.querySelectorAll('.mood-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                document.getElementById('mood-state').value = this.dataset.mood;
+            });
+        });
+        
+        // Handle form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {
+                overall_energy: formData.get('overall_energy'),
+                motivation_level: formData.get('motivation_level'),
+                focus_clarity: formData.get('focus_clarity'),
+                physical_energy: formData.get('physical_energy'),
+                mood_state: formData.get('mood_state'),
+                energy_source: formData.get('energy_source'),
+                energy_drains: formData.get('energy_drains'),
+                notes: formData.get('notes')
+            };
+            
+            if (!data.mood_state) {
+                alert('Please select your current mood.');
+                return;
+            }
+            
+            saveEnergyInsights(data);
+        });
+        
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+        
+        function resetForm() {
+            form.reset();
+            document.querySelectorAll('.energy-slider').forEach(slider => {
+                slider.value = 5;
+                slider.parentElement.querySelector('.energy-value').textContent = '5';
+            });
+            document.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
+            document.getElementById('mood-state').value = '';
+        }
+    }
+
+    function saveEnergyInsights(data) {
+        fetch('/save_energy_insights', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('Energy insights saved successfully!', 'success');
+                document.getElementById('energy-insights-modal').style.display = 'none';
+                loadEnergyInsights(); // Refresh the insights display
+            } else {
+                showNotification('Error saving insights: ' + result.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving energy insights:', error);
+            showNotification('Error saving energy insights. Please try again.', 'error');
+        });
+    }
+
+    function loadEnergyInsights() {
+        fetch('/get_energy_insights?limit=5')
+        .then(response => response.json())
+        .then(data => {
+            if (data.insights) {
+                displayEnergyInsights(data.insights);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading energy insights:', error);
+        });
+    }
+
+    function displayEnergyInsights(insights) {
+        const container = document.getElementById('energy-insights-display');
+        if (!container) return;
+        
+        if (insights.length === 0) {
+            container.innerHTML = `
+                <div class="empty-insights">
+                    <i class="fas fa-lightbulb"></i>
+                    <p>No energy insights yet. Click "Add Energy Insight" to get started!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = insights.map(insight => {
+            const date = new Date(insight.timestamp);
+            const timeStr = date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            let textContent = '';
+            if (insight.energy_source) {
+                textContent += `<p><strong>Energy boosters:</strong> ${insight.energy_source}</p>`;
+            }
+            if (insight.energy_drains) {
+                textContent += `<p><strong>Energy drains:</strong> ${insight.energy_drains}</p>`;
+            }
+            if (insight.notes) {
+                textContent += `<p><strong>Notes:</strong> ${insight.notes}</p>`;
+            }
+            
+            return `
+                <div class="insight-card">
+                    <div class="insight-header">
+                        <h4>Energy Check-in</h4>
+                        <span class="insight-timestamp">${timeStr}</span>
+                    </div>
+                    <div class="insight-mood">${getMoodEmoji(insight.mood_state)} ${insight.mood_state}</div>
+                    <div class="insight-metrics">
+                        <div class="insight-metric">
+                            <span class="insight-metric-name">Overall Energy</span>
+                            <span class="insight-metric-value">${insight.overall_energy}/10</span>
+                        </div>
+                        <div class="insight-metric">
+                            <span class="insight-metric-name">Motivation</span>
+                            <span class="insight-metric-value">${insight.motivation_level}/10</span>
+                        </div>
+                        <div class="insight-metric">
+                            <span class="insight-metric-name">Focus & Clarity</span>
+                            <span class="insight-metric-value">${insight.focus_clarity}/10</span>
+                        </div>
+                        <div class="insight-metric">
+                            <span class="insight-metric-name">Physical Energy</span>
+                            <span class="insight-metric-value">${insight.physical_energy}/10</span>
+                        </div>
+                    </div>
+                    ${textContent ? `<div class="insight-text">${textContent}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function getMoodEmoji(mood) {
+        const moodEmojis = {
+            'happy': '😊',
+            'calm': '😌',
+            'focused': '🎯',
+            'stressed': '😰',
+            'anxious': '😟',
+            'excited': '🤩',
+            'tired': '😴',
+            'frustrated': '😤'
+        };
+        return moodEmojis[mood] || '😐';
+    }
+
     // Helper functions
     function isAnyTimerRunning() {
         return Object.keys(activeTimers).length > 0;
@@ -1690,4 +1886,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Check timer status when page loads
     setTimeout(checkTimerStatus, 500); // Small delay to ensure DOM is fully loaded
+    
+    // Initialize energy insights functionality
+    initializeEnergyInsights();
+    loadEnergyInsights();
 });

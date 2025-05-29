@@ -316,8 +316,18 @@
                 <h2><i class="fas fa-bolt"></i> Your Energy Insights</h2>
                 <p>Track how your energy levels change during your personal focus sessions.</p>
                 
+                <div style="margin-bottom: 15px;">
+                    <button id="energy-insights-btn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add Energy Insight
+                    </button>
+                </div>
+                
                 <div class="energy-insights">
                     <canvas id="energy-chart"></canvas>
+                </div>
+                
+                <div id="energy-insights-display">
+                    <!-- Recent energy insights will be displayed here -->
                 </div>
                 
                 <div id="energy-logs-list">
@@ -1304,6 +1314,104 @@
             });
         }
     </script>
+    
+    <!-- Energy Insights Modal -->
+    <div id="energy-insights-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" id="close-insights-modal">&times;</span>
+            <h3><i class="fas fa-bolt"></i> How are you feeling right now?</h3>
+            <p class="modal-description">Share your current energy state to build personalized insights over time.</p>
+            
+            <form id="energy-insights-form">
+                <div class="energy-insights-grid">
+                    <div class="insight-item">
+                        <label for="overall-energy">Overall Energy Level:</label>
+                        <div class="energy-input-group">
+                            <input type="range" id="overall-energy" name="overall_energy" min="1" max="10" value="5" class="energy-slider">
+                            <span class="energy-value">5</span>
+                        </div>
+                        <div class="slider-labels">
+                            <span>Drained</span>
+                            <span>Energized</span>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <label for="motivation-level">Motivation Level:</label>
+                        <div class="energy-input-group">
+                            <input type="range" id="motivation-level" name="motivation_level" min="1" max="10" value="5" class="energy-slider">
+                            <span class="energy-value">5</span>
+                        </div>
+                        <div class="slider-labels">
+                            <span>Unmotivated</span>
+                            <span>Highly Motivated</span>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <label for="focus-clarity">Focus & Clarity:</label>
+                        <div class="energy-input-group">
+                            <input type="range" id="focus-clarity" name="focus_clarity" min="1" max="10" value="5" class="energy-slider">
+                            <span class="energy-value">5</span>
+                        </div>
+                        <div class="slider-labels">
+                            <span>Scattered</span>
+                            <span>Crystal Clear</span>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <label for="physical-energy">Physical Energy:</label>
+                        <div class="energy-input-group">
+                            <input type="range" id="physical-energy" name="physical_energy" min="1" max="10" value="5" class="energy-slider">
+                            <span class="energy-value">5</span>
+                        </div>
+                        <div class="slider-labels">
+                            <span>Tired</span>
+                            <span>Energetic</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mood-selection">
+                    <label>Current Mood:</label>
+                    <div class="mood-options">
+                        <div class="mood-option" data-mood="happy">😊 Happy</div>
+                        <div class="mood-option" data-mood="calm">😌 Calm</div>
+                        <div class="mood-option" data-mood="focused">🎯 Focused</div>
+                        <div class="mood-option" data-mood="stressed">😰 Stressed</div>
+                        <div class="mood-option" data-mood="anxious">😟 Anxious</div>
+                        <div class="mood-option" data-mood="excited">🤩 Excited</div>
+                        <div class="mood-option" data-mood="tired">😴 Tired</div>
+                        <div class="mood-option" data-mood="frustrated">😤 Frustrated</div>
+                    </div>
+                    <input type="hidden" id="mood-state" name="mood_state" required>
+                </div>
+                
+                <div class="text-inputs">
+                    <div class="text-input-group">
+                        <label for="energy-source">What's boosting your energy? (optional)</label>
+                        <textarea id="energy-source" name="energy_source" placeholder="e.g., good sleep, coffee, exercise, music..." rows="2"></textarea>
+                    </div>
+                    
+                    <div class="text-input-group">
+                        <label for="energy-drains">What's draining your energy? (optional)</label>
+                        <textarea id="energy-drains" name="energy_drains" placeholder="e.g., meetings, noise, stress, hunger..." rows="2"></textarea>
+                    </div>
+                    
+                    <div class="text-input-group">
+                        <label for="notes">Additional notes (optional)</label>
+                        <textarea id="notes" name="notes" placeholder="Any other thoughts about your current state..." rows="2"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancel-insights-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Insights</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <!-- Add timer display helper -->
     <script src="{{ url_for('static', filename='js/timer-display-helper.js') }}"></script>

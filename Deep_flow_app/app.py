@@ -166,6 +166,24 @@ def init_db():
             )
         """)
         
+        # Create energy_insights table for detailed energy insights
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS energy_insights (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                overall_energy INTEGER NOT NULL,  -- 1-10
+                motivation_level INTEGER NOT NULL,  -- 1-10
+                focus_clarity INTEGER NOT NULL,  -- 1-10
+                physical_energy INTEGER NOT NULL,  -- 1-10
+                mood_state TEXT NOT NULL,  -- happy, calm, stressed, anxious, excited, etc.
+                energy_source TEXT,  -- what's contributing to current energy
+                energy_drains TEXT,  -- what's draining energy
+                notes TEXT,  -- additional user notes
+                timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        """)
+        
         conn.commit()
         logger.info("Database initialized successfully")
         return True
@@ -749,6 +767,116 @@ def get_energy_logs():
         return {"logs": logs}, 200
     except sqlite3.Error as e:
         logger.error("Error getting energy logs: %s", str(e))
+        return {"error": "Database error"}, 500
+
+
+# Energy Insights API Endpoints
+
+@app.route("/save_energy_insights", methods=["POST"])
+def save_energy_insights():
+    """Save detailed energy insights from user"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    if request.is_json:
+        data = request.get_json()
+        
+        # Required fields
+        overall_energy = data.get("overall_energy")
+        motivation_level = data.get("motivation_level")
+        focus_clarity = data.get("focus_clarity")
+        physical_energy = data.get("physical_energy")
+        mood_state = data.get("mood_state", "").strip()
+        
+        # Optional fields
+        energy_source = data.get("energy_source", "").strip()
+        energy_drains = data.get("energy_drains", "").strip()
+        notes = data.get("notes", "").strip()
+        
+        # Validate required fields
+        if not all([overall_energy, motivation_level, focus_clarity, physical_energy, mood_state]):
+            return {"error": "All energy levels and mood state are required"}, 400
+        
+        # Validate numeric fields
+        try:
+            overall_energy = int(overall_energy)
+            motivation_level = int(motivation_level)
+            focus_clarity = int(focus_clarity)
+            physical_energy = int(physical_energy)
+            
+            for level in [overall_energy, motivation_level, focus_clarity, physical_energy]:
+                if not (1 <= level <= 10):
+                    return {"error": "All energy levels must be between 1 and 10"}, 400
+        except (ValueError, TypeError):
+            return {"error": "Energy levels must be numbers"}, 400
+        
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO energy_insights 
+                (user_id, overall_energy, motivation_level, focus_clarity, physical_energy, 
+                 mood_state, energy_source, energy_drains, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (session['user_id'], overall_energy, motivation_level, focus_clarity, 
+                  physical_energy, mood_state, energy_source, energy_drains, notes))
+            
+            conn.commit()
+            conn.close()
+            
+            return {
+                "success": True,
+                "message": "Energy insights saved successfully"
+            }, 200
+        except sqlite3.Error as e:
+            logger.error("Error saving energy insights: %s", str(e))
+            return {"error": "Database error"}, 500
+    
+    return {"error": "Invalid request"}, 400
+
+
+@app.route("/get_energy_insights", methods=["GET"])
+def get_energy_insights():
+    """Get energy insights for the user"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get recent insights with optional limit
+        limit = request.args.get('limit', 10, type=int)
+        
+        cursor.execute("""
+            SELECT * FROM energy_insights
+            WHERE user_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """, (session['user_id'], limit))
+        
+        insights = []
+        for row in cursor:
+            insights.append({
+                "id": row["id"],
+                "overall_energy": row["overall_energy"],
+                "motivation_level": row["motivation_level"],
+                "focus_clarity": row["focus_clarity"],
+                "physical_energy": row["physical_energy"],
+                "mood_state": row["mood_state"],
+                "energy_source": row["energy_source"],
+                "energy_drains": row["energy_drains"],
+                "notes": row["notes"],
+                "timestamp": row["timestamp"]
+            })
+        
+        conn.close()
+        
+        return {"insights": insights}, 200
+    except sqlite3.Error as e:
+        logger.error("Error getting energy insights: %s", str(e))
         return {"error": "Database error"}, 500
 
 
