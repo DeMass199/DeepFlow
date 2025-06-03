@@ -74,12 +74,14 @@
 }
 
 .btn-delete {
-    background-color: #6c757d;
+    background-color: #dc3545; /* Use red color for delete */
     border: none;
+    color: white;
 }
 
 .btn-delete:hover {
-    background-color: #5a6268;
+    background-color: #c82333; /* Darker red on hover */
+    transform: translateY(-1px); /* Slight lift effect */
 }
 
 /* Button Icon Alignment */

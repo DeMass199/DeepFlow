@@ -19,3 +19,85 @@
     outline: none;
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
 }
+
+/* Timer Options Dropdown - DISABLED */
+/*
+.timer-options-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.timer-options-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 1.2rem;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+}
+
+.timer-options-btn:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.timer-options-btn:focus {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+}
+
+.timer-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: white;
+    min-width: 150px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.timer-dropdown-content.show {
+    display: block;
+}
+
+.timer-dropdown-item {
+    color: #374151;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    transition: background-color 0.2s ease;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.timer-dropdown-item:hover {
+    background-color: #f9fafb;
+}
+
+.timer-dropdown-item i {
+    margin-right: 8px;
+    width: 16px;
+}
+
+.timer-dropdown-item.delete-option {
+    color: #dc2626;
+}
+
+.timer-dropdown-item.delete-option:hover {
+    background-color: #fef2f2;
+}
+*/

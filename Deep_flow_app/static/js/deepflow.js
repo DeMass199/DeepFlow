@@ -31,36 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!e.target.closest('form')) {
                     e.preventDefault();
 
-                    // Prompt for energy insight
-                    const energyLevel = prompt("Before starting the timer, how is your energy level? (1-10)");
-
-                    // Validate the input
-                    if (energyLevel === null || energyLevel.trim() === "" || isNaN(energyLevel) || energyLevel < 1 || energyLevel > 10) {
-                        alert("Please provide a valid energy level between 1 and 10.");
-                        return;
-                    }
-
                     const timerId = this.getAttribute('data-timer-id');
                     const timerDuration = parseInt(this.getAttribute('data-duration'));
 
-                    // Optionally, send the energy level to the server
-                    fetch(`/log_energy`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            timer_id: timerId,
-                            stage: 'start',
-                            energy_level: energyLevel
-                        })
-                    }).then(response => {
-                        if (!response.ok) {
-                            console.error("Failed to log energy level.");
-                        }
-                    });
-
-                    startTimer(timerId, timerDuration);
+                    // Show energy insights popup instead of simple prompt
+                    showEnergyInsightsForTimer(timerId, timerDuration);
                 }
             });
         });
@@ -1369,48 +1344,109 @@ document.addEventListener('DOMContentLoaded', function() {
         returnAudio.play().catch(() => { /* Handle silently */ });
     }
 
-    // Energy Insights Modal Functionality
+    // Energy Insights Form Functionality
     function initializeEnergyInsights() {
         const modal = document.getElementById('energy-insights-modal');
         const openBtn = document.getElementById('energy-insights-btn');
-        const closeBtn = document.getElementById('close-insights-modal');
-        const cancelBtn = document.getElementById('cancel-insights-btn');
-        const form = document.getElementById('energy-insights-form');
+        const form = document.getElementById('add-energy-insight-form');
         
-        if (!modal || !openBtn || !form) return;
+        // Handle the main form on the dashboard
+        if (form) {
+            initializeEnergyInsightsForm();
+        }
         
-        // Open modal
-        openBtn.addEventListener('click', function() {
-            modal.style.display = 'block';
-            resetForm();
-        });
+        // Handle modal functionality if it exists
+        if (modal && openBtn) {
+            const closeBtn = document.getElementById('close-insights-modal');
+            const cancelBtn = document.getElementById('cancel-insights-btn');
+            const modalForm = document.getElementById('energy-insights-form');
+            
+            // Open energy analytics dashboard
+            openBtn.addEventListener('click', function() {
+                generateEnergyAnalytics();
+            });
+            
+            // Close modal
+            if (closeBtn) closeBtn.addEventListener('click', closeModal);
+            if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Handle modal form if it exists
+            if (modalForm) {
+                initializeModalForm(modalForm);
+            }
+            
+            function closeModal() {
+                modal.style.display = 'none';
+            }
+        }
+    }
+
+    // Initialize the main energy insights form on the dashboard
+    function initializeEnergyInsightsForm() {
+        const form = document.getElementById('add-energy-insight-form');
+        if (!form) return;
         
-        // Close modal
-        closeBtn.addEventListener('click', closeModal);
-        cancelBtn.addEventListener('click', closeModal);
-        
-        // Close modal when clicking outside
-        window.addEventListener('click', function(event) {
-            if (event.target === modal) {
-                closeModal();
+        // Handle slider value updates
+        const sliders = form.querySelectorAll('.energy-slider');
+        sliders.forEach(slider => {
+            const valueSpan = slider.parentElement.querySelector('.energy-value');
+            if (valueSpan) {
+                slider.addEventListener('input', function() {
+                    valueSpan.textContent = this.value;
+                });
             }
         });
         
+        // Handle form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {
+                overall_energy: formData.get('energy_level'),
+                motivation_level: formData.get('focus_level'), // Using focus level as motivation
+                focus_clarity: formData.get('focus_level'),
+                physical_energy: formData.get('energy_level'), // Using energy level as physical
+                mood_state: formData.get('mood'),
+                energy_source: '', // Not in simple form
+                energy_drains: '', // Not in simple form
+                notes: '' // Notes field removed from simple form
+            };
+            
+            if (!data.mood_state) {
+                showNotification('Please select your current mood.', 'error');
+                return;
+            }
+            
+            saveEnergyInsights(data);
+        });
+    }
+
+    // Initialize modal form (advanced energy insights)
+    function initializeModalForm(form) {
         // Handle slider value updates
-        document.querySelectorAll('.energy-slider').forEach(slider => {
+        form.querySelectorAll('.energy-slider').forEach(slider => {
             const valueSpan = slider.parentElement.querySelector('.energy-value');
             
             slider.addEventListener('input', function() {
-                valueSpan.textContent = this.value;
+                if (valueSpan) valueSpan.textContent = this.value;
             });
         });
         
         // Handle mood selection
-        document.querySelectorAll('.mood-option').forEach(option => {
+        form.querySelectorAll('.mood-option').forEach(option => {
             option.addEventListener('click', function() {
-                document.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
+                form.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
                 this.classList.add('selected');
-                document.getElementById('mood-state').value = this.dataset.mood;
+                const moodInput = form.querySelector('#mood-state');
+                if (moodInput) moodInput.value = this.dataset.mood;
             });
         });
         
@@ -1431,26 +1467,150 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             if (!data.mood_state) {
-                alert('Please select your current mood.');
+                showNotification('Please select your current mood.', 'error');
                 return;
             }
             
             saveEnergyInsights(data);
         });
+    }
+
+    // Show energy insights modal when starting a timer
+    function showEnergyInsightsForTimer(timerId, timerDuration) {
+        const modal = document.getElementById('energy-insights-modal');
+        const form = document.getElementById('energy-insights-form');
         
-        function closeModal() {
-            modal.style.display = 'none';
+        if (!modal || !form) {
+            console.error('Energy insights modal not found');
+            // Fallback to simple energy prompt
+            showEnergyLogPrompt('start', timerId);
+            return;
         }
+
+        // Update modal title and description for timer context
+        const modalTitle = modal.querySelector('h3');
+        const modalDescription = modal.querySelector('.modal-description');
         
-        function resetForm() {
-            form.reset();
-            document.querySelectorAll('.energy-slider').forEach(slider => {
-                slider.value = 5;
-                slider.parentElement.querySelector('.energy-value').textContent = '5';
+        if (modalTitle) {
+            modalTitle.innerHTML = '<i class="fas fa-play"></i> Ready to start your focus session?';
+        }
+        if (modalDescription) {
+            modalDescription.textContent = 'Tell us how you\'re feeling right now to get better insights about your focus patterns.';
+        }
+
+        // Reset form to default values
+        resetInsightsForm();
+        
+        // Show the modal
+        modal.style.display = 'block';
+
+        // Remove any existing timer-specific event listeners
+        const existingTimerHandler = form.getAttribute('data-timer-handler');
+        if (existingTimerHandler) {
+            form.removeEventListener('submit', window[existingTimerHandler]);
+        }
+
+        // Create new event handler for timer start context
+        const timerStartHandler = function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {
+                overall_energy: formData.get('overall_energy'),
+                motivation_level: formData.get('motivation_level'),
+                focus_clarity: formData.get('focus_clarity'),
+                physical_energy: formData.get('physical_energy'),
+                mood_state: formData.get('mood_state'),
+                energy_source: formData.get('energy_source'),
+                energy_drains: formData.get('energy_drains'),
+                notes: formData.get('notes')
+            };
+            
+            if (!data.mood_state) {
+                alert('Please select your current mood.');
+                return;
+            }
+
+            // Save energy insights first
+            fetch('/save_energy_insights', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Close the modal
+                    modal.style.display = 'none';
+                    
+                    // Show notification
+                    showNotification('Energy insights saved! Starting your focus session...', 'success');
+                    
+                    // Now start the timer
+                    startTimer(timerId, timerDuration);
+                    
+                    // Refresh insights display
+                    loadEnergyInsights();
+                } else {
+                    showNotification('Error saving insights: ' + result.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving energy insights:', error);
+                showNotification('Error saving energy insights. Starting timer anyway...', 'error');
+                // Still start the timer even if insights saving failed
+                modal.style.display = 'none';
+                startTimer(timerId, timerDuration);
             });
-            document.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
-            document.getElementById('mood-state').value = '';
+        };
+
+        // Store handler reference and add event listener
+        const handlerName = 'timerStartHandler_' + Date.now();
+        window[handlerName] = timerStartHandler;
+        form.setAttribute('data-timer-handler', handlerName);
+        form.addEventListener('submit', timerStartHandler);
+
+        // Override the cancel button to restore original form behavior
+        const cancelBtn = document.getElementById('cancel-insights-btn');
+        if (cancelBtn) {
+            const cancelHandler = function() {
+                modal.style.display = 'none';
+                // Clean up the timer-specific handler
+                form.removeEventListener('submit', timerStartHandler);
+                form.removeAttribute('data-timer-handler');
+                delete window[handlerName];
+                
+                // Restore modal title and description
+                if (modalTitle) {
+                    modalTitle.innerHTML = '<i class="fas fa-bolt"></i> How are you feeling right now?';
+                }
+                if (modalDescription) {
+                    modalDescription.textContent = 'Share your current energy state to build personalized insights over time.';
+                }
+            };
+            
+            // Remove existing cancel handlers and add new one
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+            newCancelBtn.addEventListener('click', cancelHandler);
         }
+    }
+
+    // Helper function to reset the insights form
+    function resetInsightsForm() {
+        const form = document.getElementById('energy-insights-form');
+        if (!form) return;
+        
+        form.reset();
+        document.querySelectorAll('.energy-slider').forEach(slider => {
+            slider.value = 5;
+            const valueSpan = slider.parentElement.querySelector('.energy-value');
+            if (valueSpan) valueSpan.textContent = '5';
+        });
+        document.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
+        document.getElementById('mood-state').value = '';
     }
 
     function saveEnergyInsights(data) {
@@ -1465,7 +1625,19 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(result => {
             if (result.success) {
                 showNotification('Energy insights saved successfully!', 'success');
-                document.getElementById('energy-insights-modal').style.display = 'none';
+                
+                // Reset the main form if it exists
+                const mainForm = document.getElementById('add-energy-insight-form');
+                if (mainForm) {
+                    resetMainForm();
+                }
+                
+                // Close modal if it exists
+                const modal = document.getElementById('energy-insights-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+                
                 loadEnergyInsights(); // Refresh the insights display
             } else {
                 showNotification('Error saving insights: ' + result.error, 'error');
@@ -1475,6 +1647,30 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error saving energy insights:', error);
             showNotification('Error saving energy insights. Please try again.', 'error');
         });
+    }
+
+    function resetMainForm() {
+        const form = document.getElementById('add-energy-insight-form');
+        if (!form) return;
+        
+        // Reset form fields
+        form.reset();
+        
+        // Reset sliders to default values
+        const sliders = form.querySelectorAll('.energy-slider');
+        sliders.forEach(slider => {
+            slider.value = 5;
+            const valueSpan = slider.parentElement.querySelector('.energy-value');
+            if (valueSpan) valueSpan.textContent = '5';
+        });
+        
+        // Reset mood selection to default
+        const moodSelect = form.querySelector('#mood-select');
+        if (moodSelect) {
+            moodSelect.value = 'focused';
+        }
+        
+        // Reset other fields - duration field has been removed
     }
 
     function loadEnergyInsights() {
@@ -1491,17 +1687,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function displayEnergyInsights(insights) {
-        const container = document.getElementById('energy-insights-display');
+        // Try both potential containers
+        let container = document.getElementById('energy-insights-display');
+        if (!container) {
+            container = document.getElementById('energy-insights-list');
+        }
         if (!container) return;
         
         if (insights.length === 0) {
             container.innerHTML = `
-                <div class="empty-insights">
-                    <i class="fas fa-lightbulb"></i>
-                    <p>No energy insights yet. Click "Add Energy Insight" to get started!</p>
+                <div class="empty-state" id="empty-insights">
+                    <i class="fas fa-bolt"></i>
+                    <h3>No energy insights yet</h3>
+                    <p>Start tracking your energy levels to gain insights into your focus patterns.</p>
                 </div>
             `;
             return;
+        }
+        
+        // Hide empty state if it exists
+        const emptyState = document.getElementById('empty-insights');
+        if (emptyState) {
+            emptyState.style.display = 'none';
         }
         
         container.innerHTML = insights.map(insight => {
@@ -1520,31 +1727,42 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             return `
-                <div class="insight-card">
-                    <div class="insight-header">
-                        <h4>Energy Check-in</h4>
-                        <span class="insight-timestamp">${timeStr}</span>
+                <div class="energy-insight-item" data-mood="${insight.mood_state}">
+                    <div class="energy-insight-details">
+                        <div class="energy-insight-header">
+                            <span class="energy-insight-mood">${getMoodEmoji(insight.mood_state)}</span>
+                            <h3 class="energy-insight-timestamp">Energy Check-in</h3>
+                        </div>
+                        <div class="energy-insight-metrics">
+                            <div class="energy-metric">
+                                <i class="fas fa-bolt"></i>
+                                <span>Overall Energy:</span>
+                                <span class="energy-metric-value">${insight.overall_energy}/10</span>
+                            </div>
+                            <div class="energy-metric">
+                                <i class="fas fa-bullseye"></i>
+                                <span>Focus:</span>
+                                <span class="energy-metric-value">${insight.focus_clarity}/10</span>
+                            </div>
+                            <div class="energy-metric">
+                                <i class="fas fa-rocket"></i>
+                                <span>Motivation:</span>
+                                <span class="energy-metric-value">${insight.motivation_level}/10</span>
+                            </div>
+                            <div class="energy-metric">
+                                <i class="fas fa-dumbbell"></i>
+                                <span>Physical:</span>
+                                <span class="energy-metric-value">${insight.physical_energy}/10</span>
+                            </div>
+                        </div>
+                        ${textContent ? `<div class="energy-insight-notes">${textContent}</div>` : ''}
+                        <div class="energy-insight-meta">
+                            <small><i class="fas fa-clock"></i> ${timeStr}</small>
+                        </div>
                     </div>
-                    <div class="insight-mood">${getMoodEmoji(insight.mood_state)} ${insight.mood_state}</div>
-                    <div class="insight-metrics">
-                        <div class="insight-metric">
-                            <span class="insight-metric-name">Overall Energy</span>
-                            <span class="insight-metric-value">${insight.overall_energy}/10</span>
-                        </div>
-                        <div class="insight-metric">
-                            <span class="insight-metric-name">Motivation</span>
-                            <span class="insight-metric-value">${insight.motivation_level}/10</span>
-                        </div>
-                        <div class="insight-metric">
-                            <span class="insight-metric-name">Focus & Clarity</span>
-                            <span class="insight-metric-value">${insight.focus_clarity}/10</span>
-                        </div>
-                        <div class="insight-metric">
-                            <span class="insight-metric-name">Physical Energy</span>
-                            <span class="insight-metric-value">${insight.physical_energy}/10</span>
-                        </div>
+                    <div class="energy-insight-controls">
+                        <small class="energy-insight-mood-label">${insight.mood_state}</small>
                     </div>
-                    ${textContent ? `<div class="insight-text">${textContent}</div>` : ''}
                 </div>
             `;
         }).join('');
@@ -1562,6 +1780,473 @@ document.addEventListener('DOMContentLoaded', function() {
             'frustrated': '😤'
         };
         return moodEmojis[mood] || '😐';
+    }
+
+    // Enhanced Energy Analytics Functions
+    function generateEnergyAnalytics() {
+        // Fetch both energy insights and timer logs for comprehensive analysis
+        Promise.all([
+            fetch('/get_energy_insights?limit=50').then(r => r.json()),
+            fetch('/get_energy_logs').then(r => r.json())
+        ])
+        .then(([insightsData, logsData]) => {
+            const insights = insightsData.insights || [];
+            const logs = logsData.logs || [];
+            
+            // Combine data for analysis
+            const combinedData = [...insights, ...logs];
+            
+            if (combinedData.length === 0) {
+                displayNoDataAnalytics();
+                return;
+            }
+            
+            // Generate comprehensive analytics
+            const analytics = {
+                bestTimeOfDay: analyzeBestTimeOfDay(combinedData),
+                bestDayOfWeek: analyzeBestDayOfWeek(combinedData),
+                productivityPatterns: analyzeProductivityPatterns(combinedData),
+                energyTrends: analyzeEnergyTrends(combinedData),
+                focusInsights: analyzeFocusPatterns(combinedData)
+            };
+            
+            displayEnergyAnalytics(analytics);
+            createAnalyticsCharts(combinedData);
+        })
+        .catch(error => {
+            console.error('Error generating analytics:', error);
+            showNotification('Error loading analytics data', 'error');
+        });
+    }
+
+    function analyzeBestTimeOfDay(data) {
+        const timeSlots = {
+            'Early Morning (6-9 AM)': { scores: [], count: 0 },
+            'Morning (9-12 PM)': { scores: [], count: 0 },
+            'Afternoon (12-3 PM)': { scores: [], count: 0 },
+            'Late Afternoon (3-6 PM)': { scores: [], count: 0 },
+            'Evening (6-9 PM)': { scores: [], count: 0 },
+            'Night (9 PM-12 AM)': { scores: [], count: 0 }
+        };
+        
+        data.forEach(entry => {
+            const date = new Date(entry.timestamp);
+            const hour = date.getHours();
+            const energyScore = entry.overall_energy || entry.energy_level || 5;
+            
+            let timeSlot;
+            if (hour >= 6 && hour < 9) timeSlot = 'Early Morning (6-9 AM)';
+            else if (hour >= 9 && hour < 12) timeSlot = 'Morning (9-12 PM)';
+            else if (hour >= 12 && hour < 15) timeSlot = 'Afternoon (12-3 PM)';
+            else if (hour >= 15 && hour < 18) timeSlot = 'Late Afternoon (3-6 PM)';
+            else if (hour >= 18 && hour < 21) timeSlot = 'Evening (6-9 PM)';
+            else timeSlot = 'Night (9 PM-12 AM)';
+            
+            timeSlots[timeSlot].scores.push(energyScore);
+            timeSlots[timeSlot].count++;
+        });
+        
+        // Calculate averages and find best time
+        let bestTime = null;
+        let highestAverage = 0;
+        
+        Object.entries(timeSlots).forEach(([time, data]) => {
+            if (data.scores.length > 0) {
+                const average = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+                data.average = average;
+                
+                if (average > highestAverage && data.count >= 2) { // Require at least 2 sessions
+                    highestAverage = average;
+                    bestTime = time;
+                }
+            }
+        });
+        
+        return {
+            bestTime,
+            average: highestAverage,
+            allTimeSlots: timeSlots
+        };
+    }
+
+    function analyzeBestDayOfWeek(data) {
+        const days = {
+            'Monday': { scores: [], count: 0 },
+            'Tuesday': { scores: [], count: 0 },
+            'Wednesday': { scores: [], count: 0 },
+            'Thursday': { scores: [], count: 0 },
+            'Friday': { scores: [], count: 0 },
+            'Saturday': { scores: [], count: 0 },
+            'Sunday': { scores: [], count: 0 }
+        };
+        
+        data.forEach(entry => {
+            const date = new Date(entry.timestamp);
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+            const energyScore = entry.overall_energy || entry.energy_level || 5;
+            
+            if (days[dayName]) {
+                days[dayName].scores.push(energyScore);
+                days[dayName].count++;
+            }
+        });
+        
+        // Calculate averages and find best day
+        let bestDay = null;
+        let highestAverage = 0;
+        
+        Object.entries(days).forEach(([day, data]) => {
+            if (data.scores.length > 0) {
+                const average = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+                data.average = average;
+                
+                if (average > highestAverage && data.count >= 2) {
+                    highestAverage = average;
+                    bestDay = day;
+                }
+            }
+        });
+        
+        return {
+            bestDay,
+            average: highestAverage,
+            allDays: days
+        };
+    }
+
+    function analyzeProductivityPatterns(data) {
+        // Look for patterns in high-energy sessions
+        const highEnergyEntries = data.filter(entry => {
+            const energy = entry.overall_energy || entry.energy_level || 5;
+            return energy >= 7; // High energy threshold
+        });
+        
+        const patterns = {
+            commonMoods: {},
+            energySources: {},
+            bestConditions: []
+        };
+        
+        highEnergyEntries.forEach(entry => {
+            // Count mood frequencies
+            if (entry.mood_state) {
+                patterns.commonMoods[entry.mood_state] = (patterns.commonMoods[entry.mood_state] || 0) + 1;
+            }
+            
+            // Count energy source frequencies
+            if (entry.energy_source) {
+                const sources = entry.energy_source.toLowerCase().split(/[,;]/).map(s => s.trim());
+                sources.forEach(source => {
+                    if (source) {
+                        patterns.energySources[source] = (patterns.energySources[source] || 0) + 1;
+                    }
+                });
+            }
+        });
+        
+        return patterns;
+    }
+
+    function analyzeEnergyTrends(data) {
+        // Group data by week to see trends
+        const weeklyData = {};
+        const today = new Date();
+        
+        data.forEach(entry => {
+            const date = new Date(entry.timestamp);
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay()); // Start of week
+            const weekKey = weekStart.toISOString().split('T')[0];
+            
+            if (!weeklyData[weekKey]) {
+                weeklyData[weekKey] = { scores: [], count: 0 };
+            }
+            
+            const energyScore = entry.overall_energy || entry.energy_level || 5;
+            weeklyData[weekKey].scores.push(energyScore);
+            weeklyData[weekKey].count++;
+        });
+        
+        // Calculate weekly averages
+        const weeklyAverages = Object.entries(weeklyData)
+            .map(([week, data]) => ({
+                week,
+                average: data.scores.reduce((a, b) => a + b, 0) / data.scores.length,
+                count: data.count
+            }))
+            .sort((a, b) => new Date(a.week) - new Date(b.week));
+        
+        return {
+            weeklyAverages,
+            trend: calculateTrend(weeklyAverages)
+        };
+    }
+
+    function analyzeFocusPatterns(data) {
+        // Analyze focus and clarity patterns
+        const focusData = data.filter(entry => entry.focus_clarity);
+        
+        if (focusData.length === 0) return null;
+        
+        const avgFocus = focusData.reduce((sum, entry) => sum + entry.focus_clarity, 0) / focusData.length;
+        const highFocusSessions = focusData.filter(entry => entry.focus_clarity >= 7);
+        
+        return {
+            averageFocus: avgFocus,
+            highFocusCount: highFocusSessions.length,
+            totalSessions: focusData.length,
+            focusPercentage: (highFocusSessions.length / focusData.length) * 100
+        };
+    }
+
+    function calculateTrend(weeklyData) {
+        if (weeklyData.length < 2) return 'insufficient_data';
+        
+        const recent = weeklyData.slice(-3); // Last 3 weeks
+        const earlier = weeklyData.slice(0, -3);
+        
+        if (earlier.length === 0) return 'insufficient_data';
+        
+        const recentAvg = recent.reduce((sum, week) => sum + week.average, 0) / recent.length;
+        const earlierAvg = earlier.reduce((sum, week) => sum + week.average, 0) / earlier.length;
+        
+        const difference = recentAvg - earlierAvg;
+        
+        if (difference > 0.5) return 'improving';
+        if (difference < -0.5) return 'declining';
+        return 'stable';
+    }
+
+    function displayEnergyAnalytics(analytics) {
+        const container = document.getElementById('energy-insights-display');
+        if (!container) return;
+        
+        container.innerHTML = `
+            <div class="analytics-dashboard">
+                <h3><i class="fas fa-chart-bar"></i> Your Productivity Analytics</h3>
+                
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h4><i class="fas fa-clock"></i> Best Time for Big Projects</h4>
+                        <div class="analytics-value">
+                            ${analytics.bestTimeOfDay.bestTime || 'Not enough data'}
+                        </div>
+                        <div class="analytics-detail">
+                            ${analytics.bestTimeOfDay.bestTime ? 
+                                `Average energy: ${analytics.bestTimeOfDay.average.toFixed(1)}/10` : 
+                                'Complete more sessions to see patterns'}
+                        </div>
+                    </div>
+                    
+                    <div class="analytics-card">
+                        <h4><i class="fas fa-calendar-day"></i> Most Productive Day</h4>
+                        <div class="analytics-value">
+                            ${analytics.bestDayOfWeek.bestDay || 'Not enough data'}
+                        </div>
+                        <div class="analytics-detail">
+                            ${analytics.bestDayOfWeek.bestDay ? 
+                                `Average energy: ${analytics.bestDayOfWeek.average.toFixed(1)}/10` : 
+                                'Complete more sessions to see patterns'}
+                        </div>
+                    </div>
+                    
+                    ${analytics.focusInsights ? `
+                    <div class="analytics-card">
+                        <h4><i class="fas fa-bullseye"></i> Focus Performance</h4>
+                        <div class="analytics-value">
+                            ${analytics.focusInsights.focusPercentage.toFixed(0)}%
+                        </div>
+                        <div class="analytics-detail">
+                            High focus sessions (${analytics.focusInsights.highFocusCount}/${analytics.focusInsights.totalSessions})
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="analytics-card">
+                        <h4><i class="fas fa-trending-up"></i> Energy Trend</h4>
+                        <div class="analytics-value">
+                            ${getTrendDisplay(analytics.energyTrends.trend)}
+                        </div>
+                        <div class="analytics-detail">
+                            Based on recent weeks
+                        </div>
+                    </div>
+                </div>
+                
+                ${displayProductivityInsights(analytics.productivityPatterns)}
+            </div>
+        `;
+    }
+
+    function getTrendDisplay(trend) {
+        switch(trend) {
+            case 'improving': return '📈 Improving';
+            case 'declining': return '📉 Declining';
+            case 'stable': return '➡️ Stable';
+            default: return '📊 Tracking...';
+        }
+    }
+
+    function displayProductivityInsights(patterns) {
+        const insights = [];
+        
+        // Most common high-energy mood
+        if (Object.keys(patterns.commonMoods).length > 0) {
+            const topMood = Object.entries(patterns.commonMoods)
+                .sort(([,a], [,b]) => b - a)[0];
+            insights.push(`You're most productive when feeling <strong>${topMood[0]}</strong> ${getMoodEmoji(topMood[0])}`);
+        }
+        
+        // Top energy sources
+        if (Object.keys(patterns.energySources).length > 0) {
+            const topSources = Object.entries(patterns.energySources)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 3)
+                .map(([source]) => source);
+            
+            if (topSources.length > 0) {
+                insights.push(`Your top energy boosters: <strong>${topSources.join(', ')}</strong>`);
+            }
+        }
+        
+        if (insights.length === 0) {
+            return '<div class="insights-placeholder">Complete more energy check-ins to see personalized insights!</div>';
+        }
+        
+        return `
+            <div class="productivity-insights">
+                <h4><i class="fas fa-lightbulb"></i> Productivity Insights</h4>
+                <ul>
+                    ${insights.map(insight => `<li>${insight}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    function createAnalyticsCharts(data) {
+        createTimeOfDayChart(data);
+        createWeeklyTrendChart(data);
+    }
+
+    function createTimeOfDayChart(data) {
+        const chartContainer = document.getElementById('energy-chart');
+        if (!chartContainer) return;
+        
+        // Clear existing chart
+        if (window.energyChart) {
+            window.energyChart.destroy();
+        }
+        
+        // Group data by hour
+        const hourlyData = Array(24).fill(0).map(() => ({ total: 0, count: 0 }));
+        
+        data.forEach(entry => {
+            const date = new Date(entry.timestamp);
+            const hour = date.getHours();
+            const energy = entry.overall_energy || entry.energy_level || 5;
+            
+            hourlyData[hour].total += energy;
+            hourlyData[hour].count += 1;
+        });
+        
+        // Calculate averages
+        const chartData = hourlyData.map((data, hour) => ({
+            x: hour,
+            y: data.count > 0 ? data.total / data.count : null
+        })).filter(point => point.y !== null);
+        
+        if (chartData.length === 0) {
+            chartContainer.innerHTML = '<div class="empty-chart">No data available for time analysis</div>';
+            return;
+        }
+        
+        const ctx = chartContainer.getContext('2d');
+        window.energyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Average Energy by Hour',
+                    data: chartData,
+                    borderColor: '#4facfe',
+                    backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        min: 0,
+                        max: 23,
+                        title: {
+                            display: true,
+                            text: 'Hour of Day'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + ':00';
+                            }
+                        }
+                    },
+                    y: {
+                        min: 1,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Average Energy Level'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Your Energy Levels Throughout the Day',
+                        font: { size: 16 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const hour = context.parsed.x;
+                                const energy = context.parsed.y.toFixed(1);
+                                return `${hour}:00 - Energy: ${energy}/10`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function createWeeklyTrendChart(data) {
+        // This would create an additional chart showing weekly trends
+        // Implementation could be added based on available space in the UI
+    }
+
+    function displayNoDataAnalytics() {
+        const container = document.getElementById('energy-insights-display');
+        if (!container) return;
+        
+        container.innerHTML = `
+            <div class="no-analytics">
+                <i class="fas fa-chart-line fa-3x"></i>
+                <h3>Start Building Your Analytics</h3>
+                <p>Complete a few energy check-ins and timer sessions to see your personalized productivity insights!</p>
+                <div class="analytics-tips">
+                    <h4>Tips to get started:</h4>
+                    <ul>
+                        <li>Use the "Add Energy Insight" button before work sessions</li>
+                        <li>Track your energy when starting timers</li>
+                        <li>Complete sessions over different days and times</li>
+                        <li>Be honest about your energy and mood levels</li>
+                    </ul>
+                </div>
+            </div>
+        `;
     }
 
     // Helper functions
@@ -1616,11 +2301,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-stop"></i> Stop
                     </button>`
                 }
-                <form action="/delete_timer/${timerId}" method="post" onsubmit="return confirm('Are you sure you want to delete this timer?');">
-                    <button type="submit" class="btn btn-delete">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </form>
             </div>
         `;
         
@@ -1891,3 +2571,276 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEnergyInsights();
     loadEnergyInsights();
 });
+
+// Timer Dropdown Functions (Global scope for onclick handlers)
+
+/*
+ * DROPDOWN FUNCTIONALITY DISABLED - Timer dropdown buttons removed
+ *
+ * Toggle the timer dropdown menu
+ * @param {string} timerId - The ID of the timer
+ */
+/*
+function toggleTimerDropdown(timerId) {
+    const dropdown = document.getElementById(`timer-dropdown-${timerId}`);
+    if (!dropdown) return;
+    
+    // Close all other dropdowns first
+    document.querySelectorAll('.timer-dropdown-content').forEach(otherDropdown => {
+        if (otherDropdown.id !== `timer-dropdown-${timerId}`) {
+            otherDropdown.classList.remove('show');
+        }
+    });
+    
+    // Toggle the current dropdown
+    dropdown.classList.toggle('show');
+    
+    // If dropdown is now open, set up click-outside-to-close behavior
+    if (dropdown.classList.contains('show')) {
+        setTimeout(() => {
+            document.addEventListener('click', handleClickOutside);
+        }, 0);
+    } else {
+        document.removeEventListener('click', handleClickOutside);
+    }
+}
+*/
+
+/*
+ * Handle clicking outside of dropdown to close it
+ * @param {Event} event - The click event
+ */
+/*
+function handleClickOutside(event) {
+    // Check if the click is outside any dropdown
+    if (!event.target.closest('.timer-options-dropdown')) {
+        // Close all dropdowns
+        document.querySelectorAll('.timer-dropdown-content').forEach(dropdown => {
+            dropdown.classList.remove('show');
+        });
+        document.removeEventListener('click', handleClickOutside);
+    }
+}
+*/
+
+/*
+ * Edit timer function (placeholder for future implementation)
+ * @param {string} timerId - The ID of the timer to edit
+ */
+/*
+function editTimer(timerId) {
+    // Close the dropdown
+    const dropdown = document.getElementById(`timer-dropdown-${timerId}`);
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+    
+    // For now, show an alert indicating this feature is coming soon
+    alert(`Edit Timer functionality for timer ${timerId} is coming soon!`);
+    
+    // TODO: Implement edit timer functionality
+    // This could involve:
+    // 1. Opening a modal with the timer's current settings
+    // 2. Allowing the user to modify name, duration, and other settings
+    // 3. Sending an update request to the server
+    // 4. Refreshing the timer display with new settings
+}
+*/
+
+/**
+ * Delete timer with confirmation
+ * @param {string} timerId - The ID of the timer to delete
+ */
+function deleteTimer(timerId) {
+    // Close the dropdown (DISABLED - dropdown functionality removed)
+    /*
+    const dropdown = document.getElementById(`timer-dropdown-${timerId}`);
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+    */
+    
+    // Get timer name for better confirmation message
+    const timerElement = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+    const timerName = timerElement ? timerElement.querySelector('h3').textContent : `Timer ${timerId}`;
+    
+    // Show confirmation dialog
+    if (confirm(`Are you sure you want to delete "${timerName}"? This action cannot be undone.`)) {
+        // Check if timer is currently running
+        if (timerElement && timerElement.classList.contains('timer-running')) {
+            if (!confirm('This timer is currently running. Deleting it will stop the timer. Continue?')) {
+                return;
+            }
+        }
+        
+        // Show loading state
+        if (timerElement) {
+            timerElement.style.opacity = '0.5';
+            timerElement.style.pointerEvents = 'none';
+        }
+        
+        // Send delete request
+        fetch(`/delete_timer/${timerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                // Check if response is a redirect (for form-based deletion)
+                if (response.redirected) {
+                    window.location.reload();
+                    return;
+                }
+                return response.json();
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        })
+        .then(data => {
+            if (data && data.success) {
+                // Remove timer from DOM with animation
+                if (timerElement) {
+                    timerElement.style.transition = 'all 0.3s ease';
+                    timerElement.style.transform = 'translateX(-100%)';
+                    timerElement.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        timerElement.remove();
+                        
+                        // Check if timer list is now empty
+                        const timerList = document.querySelector('.timer-list');
+                        if (timerList && timerList.children.length === 0) {
+                            timerList.innerHTML = `
+                                <div class="empty-state">
+                                    <i class="fas fa-clock"></i>
+                                    <h3>No timers yet</h3>
+                                    <p>Create your first timer to get started with managing your focus sessions.</p>
+                                </div>
+                            `;
+                        }
+                    }, 300);
+                }
+                
+                // Show success message
+                showNotification('Timer deleted successfully', 'success');
+                
+                // Clean up any active intervals for this timer
+                if (window.activeTimers && window.activeTimers[timerId]) {
+                    clearInterval(window.activeTimers[timerId]);
+                    delete window.activeTimers[timerId];
+                }
+            } else {
+                throw new Error(data ? data.error : 'Unknown error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting timer:', error);
+            
+            // Restore timer element
+            if (timerElement) {
+                timerElement.style.opacity = '1';
+                timerElement.style.pointerEvents = 'auto';
+            }
+            
+            // Show error message
+            showNotification(`Failed to delete timer: ${error.message}`, 'error');
+        });
+    }
+}
+
+/**
+ * Show notification message to user
+ * @param {string} message - The message to display
+ * @param {string} type - The type of notification ('success', 'error', 'info')
+ */
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 4px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        transform: translateX(100%);
+    `;
+    
+    // Set background color based on type
+    switch (type) {
+        case 'success':
+            notification.style.backgroundColor = '#28a745';
+            break;
+        case 'error':
+            notification.style.backgroundColor = '#dc3545';
+            break;
+        case 'warning':
+            notification.style.backgroundColor = '#ffc107';
+            notification.style.color = '#212529';
+            break;
+        default:
+            notification.style.backgroundColor = '#17a2b8';
+    }
+    
+    notification.textContent = message;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 5000);
+    
+    // Allow manual dismissal by clicking
+    notification.addEventListener('click', () => {
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    });
+}
+
+// Initialize dropdown functionality when DOM is loaded (DISABLED - dropdown functionality removed)
+/*
+document.addEventListener('DOMContentLoaded', function() {
+    // Add keyboard support for dropdowns
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            // Close all dropdowns on Escape key
+            document.querySelectorAll('.timer-dropdown-content').forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
+            document.removeEventListener('click', handleClickOutside);
+        }
+    });
+});
+*/
+
+// Make functions available globally for onclick handlers (DISABLED - dropdown functionality removed)
+/*
+window.toggleTimerDropdown = toggleTimerDropdown;
+window.editTimer = editTimer;
+*/
+window.deleteTimer = deleteTimer; // Keep delete function available

@@ -165,15 +165,18 @@
                 {% endfor %}
             </div>
 
-            <!-- Add Timer Form -->
+            <!-- Timer Management -->
             <div class="timer-container">
-                <h2><i class="fas fa-plus-circle"></i> New Timer</h2>
+                <h2><i class="fas fa-clock"></i> Timer Management</h2>
+                
+                <!-- Add Timer Form -->
                 <div class="timer-form">
+                    <h3><i class="fas fa-plus-circle"></i> Create New Timer</h3>
                     <form action="{{ url_for('add_timer') }}" method="post" id="add-timer-form">
                         <div class="timer-form-flex">
                             <!-- Advanced Settings on the Left -->
                             <div class="timer-form-left">
-                                <h3>Advanced Settings</h3>
+                                <h4>Advanced Settings</h4>
                                 <div id="advanced-timer-settings" class="timer-advanced-settings">
                                     <div class="checkbox-group">
                                         <input type="checkbox" id="enable-checkin" name="enable_checkin" checked>
@@ -218,14 +221,11 @@
                         </div>
                     </form>
                 </div>
-            </div>
 
-            <!-- Timer List -->
-            <div class="timer-container">
-                <h2><i class="fas fa-list"></i> Your Timers</h2>
-                
-                
-                <div class="timer-list">
+                <!-- Timer List -->
+                <div class="timer-list-section">
+                    <h3><i class="fas fa-list"></i> Your Timers</h3>
+                    <div class="timer-list">
                     {% if timers %}
                         {% for timer in timers %}
                             <div class="timer-item {% if timer[7] == 1 %}timer-running{% elif timer[7] == 2 %}timer-paused{% else %}timer-stopped{% endif %}" 
@@ -271,11 +271,9 @@
                                     <button type="button" class="btn btn-stop stop-timer-btn" data-timer-id="{{ timer[0] }}" {% if timer[7] == 0 %}style="display: none;"{% endif %}>
                                         <i class="fas fa-stop"></i> Stop
                                     </button>
-                                    <form action="{{ url_for('delete_timer', timer_id=timer[0]) }}" method="post" class="delete-form" onsubmit="return confirm('Are you sure you want to delete this timer?');">
-                                        <button type="submit" class="btn btn-delete">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-delete delete-timer-btn" data-timer-id="{{ timer[0] }}" onclick="deleteTimer({{ timer[0] }})" title="Delete Timer">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
                                 </div>
                             </div>
                         {% endfor %}
@@ -286,6 +284,7 @@
                             <p>Create your first timer to get started with managing your focus sessions.</p>
                         </div>
                     {% endif %}
+                </div>
                 </div>
             </div>
 
@@ -311,27 +310,96 @@
                 </div>
             </div>
 
-            <!-- Energy Logs Section -->
-            <div class="timer-container energy-log-container">
-                <h2><i class="fas fa-bolt"></i> Your Energy Insights</h2>
-                <p>Track how your energy levels change during your personal focus sessions.</p>
+            <!-- Energy Insights Section -->
+            <div class="timer-container">
+                <h2><i class="fas fa-bolt"></i> Energy Check-In</h2>
+                <p>Track how you're feeling right now to build insights about your focus patterns.</p>
                 
-                <div style="margin-bottom: 15px;">
-                    <button id="energy-insights-btn" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Add Energy Insight
-                    </button>
+                <!-- Add Energy Insight Form -->
+                <div class="timer-form">
+                    <form id="add-energy-insight-form">
+                        <div class="energy-insights-form-layout">
+                            <!-- Row 1: Energy and Focus Levels -->
+                            <div class="form-row">
+                                <div class="form-group half-width">
+                                    <label for="energy-level">
+                                        <i class="fas fa-battery-three-quarters"></i> Energy Level
+                                    </label>
+                                    <div class="slider-container">
+                                        <input type="range" id="energy-level" name="energy_level" min="1" max="10" value="5" class="energy-slider">
+                                        <div class="slider-labels">
+                                            <span>Low</span>
+                                            <span class="energy-value">5</span>
+                                            <span>High</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group half-width">
+                                    <label for="focus-level">
+                                        <i class="fas fa-bullseye"></i> Focus Level
+                                    </label>
+                                    <div class="slider-container">
+                                        <input type="range" id="focus-level" name="focus_level" min="1" max="10" value="5" class="energy-slider">
+                                        <div class="slider-labels">
+                                            <span>Scattered</span>
+                                            <span class="energy-value">5</span>
+                                            <span>Sharp</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Row 2: Mood Selection -->
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <label for="mood-select">
+                                        <i class="fas fa-smile"></i> How are you feeling right now?
+                                    </label>
+                                    <select id="mood-select" name="mood" class="full-width-dropdown">
+                                        <option value="excited">😄 Excited & Energetic</option>
+                                        <option value="focused" selected>😌 Focused & Calm</option>
+                                        <option value="motivated">💪 Motivated & Determined</option>
+                                        <option value="happy">😊 Happy & Content</option>
+                                        <option value="calm">😊 Peaceful & Relaxed</option>
+                                        <option value="neutral">😐 Neutral</option>
+                                        <option value="tired">😴 Tired & Low Energy</option>
+                                        <option value="stressed">😰 Stressed & Overwhelmed</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Row 3: Submit Button -->
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <button type="submit" class="btn btn-start btn-large" id="add-insight-btn">
+                                        <i class="fas fa-check-circle"></i> Record My Energy State
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Energy Insights List -->
+                <div class="timer-list-section">
+                    <h3><i class="fas fa-chart-line"></i> Your Energy Insights</h3>
+                    <div class="timer-list" id="energy-insights-list">
+                        <!-- Energy insights will be loaded here via JavaScript -->
+                        <div class="empty-state" id="empty-insights">
+                            <i class="fas fa-bolt"></i>
+                            <h3>No energy insights yet</h3>
+                            <p>Start tracking your energy levels to gain insights into your focus patterns.</p>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="energy-insights">
-                    <canvas id="energy-chart"></canvas>
-                </div>
-                
-                <div id="energy-insights-display">
-                    <!-- Recent energy insights will be displayed here -->
-                </div>
-                
-                <div id="energy-logs-list">
-                    <!-- Energy logs will be loaded here via JavaScript -->
+                <!-- Energy Chart Section -->
+                <div class="timer-list-section">
+                    <h3><i class="fas fa-chart-area"></i> Energy Trends</h3>
+                    <div class="energy-chart-container">
+                        <canvas id="energy-chart"></canvas>
+                    </div>
                 </div>
             </div>
 
