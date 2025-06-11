@@ -271,9 +271,11 @@
                                     <button type="button" class="btn btn-stop stop-timer-btn" data-timer-id="{{ timer[0] }}" {% if timer[7] == 0 %}style="display: none;"{% endif %}>
                                         <i class="fas fa-stop"></i> Stop
                                     </button>
-                                    <button type="button" class="btn btn-delete delete-timer-btn" data-timer-id="{{ timer[0] }}" onclick="deleteTimer({{ timer[0] }})" title="Delete Timer">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </button>
+                                    <form action="{{ url_for('delete_timer', timer_id=timer[0]) }}" method="post" style="display: inline;">
+                                        <button type="submit" class="btn btn-delete delete-timer-btn" data-timer-id="{{ timer[0] }}" title="Delete Timer" onclick="return confirm('Are you sure you want to delete this timer?')">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         {% endfor %}

@@ -4,10 +4,11 @@
 .energy-insights-form-layout {
     max-width: 800px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1.5rem;
     background: #ffffff;
     border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-sizing: border-box;
 }
 
 .energy-insights-form-layout h2 {
@@ -28,7 +29,7 @@
 
 .form-row {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem;
     margin-bottom: 1.5rem;
     align-items: flex-start;
 }
@@ -40,6 +41,7 @@
 .half-width {
     flex: 1;
     min-width: 0;
+    max-width: calc(50% - 0.5rem);
 }
 
 .full-width {
@@ -69,11 +71,16 @@
 /* Slider Container Enhancement */
 .slider-container {
     position: relative;
-    padding: 1rem;
+    padding: 1rem 0.75rem;
     background: #f8fafc;
     border-radius: 8px;
     border: 1px solid #e5e7eb;
     transition: all 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .slider-container:hover {
@@ -200,42 +207,108 @@
     width: 100%;
     -webkit-appearance: none;
     appearance: none;
-    height: 6px;
-    border-radius: 3px;
+    height: 8px;
+    border-radius: 4px;
     background: #e5e7eb;
     outline: none;
     cursor: pointer;
-    margin-bottom: 10px;
+    margin: 0;
+    box-sizing: border-box;
+    position: relative;
+    display: block;
 }
 
 .energy-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #4f46e5;
     cursor: pointer;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    position: relative;
+    transform: translateY(0);
 }
 
 .energy-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #4f46e5;
     cursor: pointer;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    transform: translateY(0);
+    margin-top: 0;
+}
+
+/* Ensure perfect centering for all slider elements */
+.slider-container .energy-slider {
+    align-self: center;
+    margin: 0.5rem 0;
+}
+
+/* Additional centering adjustments */
+.energy-slider::-webkit-slider-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #e5e7eb;
+    border: none;
+}
+
+.energy-slider::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #e5e7eb;
+    border: none;
+}
+
+/* Hover effects for better interaction */
+.energy-slider:hover::-webkit-slider-thumb {
+    background: #3730a3;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+.energy-slider:hover::-moz-range-thumb {
+    background: #3730a3;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+.energy-slider:focus {
+    outline: none;
+}
+
+.energy-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
+.energy-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
+/* Firefox specific styling */
+.energy-slider::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #e5e7eb;
+    border: none;
 }
 
 .energy-value {
     text-align: center;
     font-weight: bold;
     color: #4f46e5;
-    font-size: 1.1rem;
-    margin-top: 5px;
+    font-size: 0.95rem;
+    min-width: 28px;
+    padding: 0.2rem 0.4rem;
+    background: rgba(79, 70, 229, 0.1);
+    border-radius: 4px;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    display: inline-block;
 }
 
 /* Energy insight items - similar to timer items */
@@ -538,6 +611,31 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* Hover effects for better interaction */
+.energy-slider:hover::-webkit-slider-thumb {
+    background: #3730a3;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+.energy-slider:hover::-moz-range-thumb {
+    background: #3730a3;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+.energy-slider:focus {
+    outline: none;
+}
+
+.energy-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
+.energy-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
 .energy-value {
     min-width: 20px;
     font-weight: bold;
@@ -548,8 +646,30 @@
 .slider-labels {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 0.8rem;
     color: #6c757d;
+    margin-top: 0.75rem;
+    padding: 0 11px; /* Padding to align with slider thumb center */
+    box-sizing: border-box;
+    position: relative;
+}
+
+.slider-labels span:first-child {
+    text-align: left;
+}
+
+.slider-labels span:last-child {
+    text-align: right;
+}
+
+.slider-labels .energy-value {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    transition: transform 0.2s ease;
+    z-index: 2;
 }
 
 .mood-selection {
@@ -732,9 +852,8 @@
     }
     
     .energy-insights-form-layout {
-        padding: 1.5rem;
-        margin: 1rem;
-        border-radius: 8px;
+        padding: 1rem;
+        margin: 0 0.5rem;
     }
     
     .form-row {
@@ -743,7 +862,11 @@
     }
     
     .half-width {
-        width: 100%;
+        max-width: 100%;
+    }
+    
+    .slider-container {
+        padding: 0.5rem;
     }
     
     .energy-insights-form-layout .mood-options {
@@ -767,24 +890,16 @@
 
 @media (max-width: 480px) {
     .energy-insights-form-layout {
-        padding: 1rem;
-        margin: 0.5rem;
-    }
-    
-    .energy-insights-form-layout h2 {
-        font-size: 1.5rem;
-    }
-    
-    .energy-insights-form-layout .form-subtitle {
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .slider-container {
         padding: 0.75rem;
+        margin: 0 0.25rem;
     }
     
-    .energy-insights-form-layout .mood-options {
-        grid-template-columns: 1fr;
+    .slider-labels {
+        font-size: 0.75rem;
+    }
+    
+    .energy-value {
+        font-size: 0.9rem;
+        min-width: 25px;
     }
 }

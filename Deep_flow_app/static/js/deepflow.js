@@ -1355,6 +1355,10 @@ document.addEventListener('DOMContentLoaded', function() {
             initializeEnergyInsightsForm();
         }
         
+        // Load initial insights and chart
+        loadEnergyInsights();
+        displayEnergyInsightsChart();
+        
         // Handle modal functionality if it exists
         if (modal && openBtn) {
             const closeBtn = document.getElementById('close-insights-modal');
@@ -1391,16 +1395,55 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize the main energy insights form on the dashboard
     function initializeEnergyInsightsForm() {
         const form = document.getElementById('add-energy-insight-form');
-        if (!form) return;
+        if (!form) {
+            console.log('Energy insights form not found');
+            return;
+        }
+        
+        console.log('Initializing energy insights form...');
         
         // Handle slider value updates
         const sliders = form.querySelectorAll('.energy-slider');
-        sliders.forEach(slider => {
-            const valueSpan = slider.parentElement.querySelector('.energy-value');
+        console.log('Found', sliders.length, 'energy sliders');
+        
+        sliders.forEach((slider, index) => {
+            console.log(`Processing slider ${index}: ${slider.id}`);
+            
+            // Find the correct value span - it's in the slider-labels div
+            const sliderContainer = slider.closest('.slider-container');
+            const valueSpan = sliderContainer ? sliderContainer.querySelector('.energy-value') : null;
+            
             if (valueSpan) {
-                slider.addEventListener('input', function() {
-                    valueSpan.textContent = this.value;
-                });
+                console.log(`Found value span for slider ${index}`);
+                
+                // Function to update value and position
+                const updateSliderValue = () => {
+                    const value = slider.value;
+                    const min = slider.min || 1;
+                    const max = slider.max || 10;
+                    
+                    // Update the displayed value
+                    valueSpan.textContent = value;
+                    
+                    // Calculate the percentage position of the thumb
+                    const percentage = ((value - min) / (max - min)) * 100;
+                    
+                    // Position the value display to align with the thumb
+                    // Account for the thumb width and container padding
+                    const offset = (percentage - 50) * 0.8; // Slight adjustment for better alignment
+                    valueSpan.style.transform = `translateX(calc(-50% + ${offset}%))`;
+                };
+                
+                // Set initial value and position
+                updateSliderValue();
+                
+                // Update on input
+                slider.addEventListener('input', updateSliderValue);
+                
+                // Also add change event as backup
+                slider.addEventListener('change', updateSliderValue);
+            } else {
+                console.error(`No value span found for slider ${index}`);
             }
         });
         
@@ -1425,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            // Save insights and refresh chart
             saveEnergyInsights(data);
         });
     }
@@ -1435,9 +1479,15 @@ document.addEventListener('DOMContentLoaded', function() {
         form.querySelectorAll('.energy-slider').forEach(slider => {
             const valueSpan = slider.parentElement.querySelector('.energy-value');
             
-            slider.addEventListener('input', function() {
-                if (valueSpan) valueSpan.textContent = this.value;
-            });
+            if (valueSpan) {
+                // Set initial value
+                valueSpan.textContent = slider.value;
+                
+                // Update on input
+                slider.addEventListener('input', function() {
+                    valueSpan.textContent = this.value;
+                });
+            }
         });
         
         // Handle mood selection
@@ -1639,6 +1689,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 loadEnergyInsights(); // Refresh the insights display
+                displayEnergyInsightsChart(); // Refresh the chart with new data
             } else {
                 showNotification('Error saving insights: ' + result.error, 'error');
             }
@@ -1781,6 +1832,181 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return moodEmojis[mood] || '😐';
     }
+
+    // Display Energy Insights Chart
+    function displayEnergyInsightsChart() {
+        const chartCanvas = document.getElementById('energy-chart');
+        if (!chartCanvas) return;
+
+        // Fetch energy insights data
+        fetch('/get_energy_insights?limit=20')
+        .then(response => response.json())
+        .then(data => {
+            const insights = data.insights || [];
+            
+            if (insights.length === 0) {
+                // Show empty state
+                const container = chartCanvas.parentElement;
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-chart-area"></i>
+                        <p>No energy insights data yet. Record your energy states to see trends here.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Prepare data for the chart
+            const labels = [];
+            const energyData = [];
+            const focusData = [];
+            
+            // Sort insights by timestamp (most recent first, then reverse for chronological order)
+            const sortedInsights = insights.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            sortedInsights.forEach(insight => {
+                const date = new Date(insight.timestamp);
+                const dateLabel = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                
+                labels.push(dateLabel);
+                energyData.push(insight.overall_energy || 5);
+                focusData.push(insight.focus_clarity || 5);
+            });
+
+            // Destroy existing chart if it exists
+            if (window.energyInsightsChart) {
+                window.energyInsightsChart.destroy();
+            }
+
+            // Create new chart
+            window.energyInsightsChart = new Chart(chartCanvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Energy Level',
+                            data: energyData,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#4f46e5',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Focus Level',
+                            data: focusData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Your Energy & Focus Patterns',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            color: '#374151'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#374151',
+                            bodyColor: '#374151',
+                            borderColor: '#e5e7eb',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(context) {
+                                    return `Check-in: ${context[0].label}`;
+                                },
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y}/10`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                maxTicksLimit: 6,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        y: {
+                            display: true,
+                            min: 1,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: 'Level (1-10)',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                stepSize: 1,
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(229, 231, 235, 0.5)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading energy insights for chart:', error);
+        });
+    }
+
+    // Energy Insights Chart - End
 
     // Enhanced Energy Analytics Functions
     function generateEnergyAnalytics() {
@@ -2391,7 +2617,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         notification.textContent = message;
         
-        // Add to notification area
+        // Add to page
         notificationArea.appendChild(notification);
         
         // Remove after 5 seconds
