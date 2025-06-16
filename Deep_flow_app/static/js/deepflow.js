@@ -920,7 +920,7 @@ document.addEventListener('DOMContentLoaded', function() {
         energyModal.style.display = 'block';
     }
 
-    function saveEnergyLog(timerId, stage, energyLevel) {
+    function saveEnergyLog(timerId, stage, energyLevel, focusLevel = null) {
         // Save to local storage for now
         const logs = JSON.parse(localStorage.getItem('energyLogs') || '[]');
         
@@ -933,6 +933,7 @@ document.addEventListener('DOMContentLoaded', function() {
             timerName: timerName,
             stage: stage,
             energyLevel: parseInt(energyLevel),
+            focusLevel: focusLevel ? parseInt(focusLevel) : null,
             timestamp: new Date().toISOString()
         };
         
@@ -944,17 +945,25 @@ document.addEventListener('DOMContentLoaded', function() {
         
         localStorage.setItem('energyLogs', JSON.stringify(logs));
         
+        // Prepare request body
+        const requestBody = {
+            timer_id: timerId,
+            stage: stage,
+            energy_level: energyLevel
+        };
+        
+        // Include focus level if provided
+        if (focusLevel !== null) {
+            requestBody.focus_level = focusLevel;
+        }
+        
         // Make AJAX request to save to database
         fetch('/log_energy', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                timer_id: timerId,
-                stage: stage,
-                energy_level: energyLevel
-            }),
+            body: JSON.stringify(requestBody),
         }).then(response => {
             if (response.ok) {
                 // Update the chart if we're on the dashboard
@@ -1475,34 +1484,86 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize modal form (advanced energy insights)
     function initializeModalForm(form) {
+        console.log('Initializing modal form:', form.id);
+        
         // Handle slider value updates
-        form.querySelectorAll('.energy-slider').forEach(slider => {
-            const valueSpan = slider.parentElement.querySelector('.energy-value');
+        form.querySelectorAll('.energy-slider').forEach((slider, index) => {
+            console.log(`Processing modal slider ${index}: ${slider.id}`);
+            
+            // Find the correct value span
+            const energyInputGroup = slider.closest('.energy-input-group');
+            const valueSpan = energyInputGroup ? energyInputGroup.querySelector('.energy-value') : null;
             
             if (valueSpan) {
-                // Set initial value
-                valueSpan.textContent = slider.value;
+                console.log(`Found value span for modal slider ${index}`);
+                
+                // Function to update value and position
+                const updateSliderValue = () => {
+                    const value = slider.value;
+                    const min = slider.min || 1;
+                    const max = slider.max || 10;
+                    
+                    // Update the displayed value
+                    valueSpan.textContent = value;
+                    console.log(`Updated modal slider ${index} to: ${value}`);
+                };
+                
+                // Set initial value and position
+                updateSliderValue();
                 
                 // Update on input
-                slider.addEventListener('input', function() {
-                    valueSpan.textContent = this.value;
-                });
+                slider.addEventListener('input', updateSliderValue);
+                
+                // Also add change event as backup
+                slider.addEventListener('change', updateSliderValue);
+            } else {
+                console.error(`No value span found for modal slider ${index}`);
             }
         });
         
-        // Handle mood selection
-        form.querySelectorAll('.mood-option').forEach(option => {
+        // Handle mood button selection with proper toggle functionality
+        const moodOptions = form.querySelectorAll('.mood-option');
+        const moodStateInput = form.querySelector('#mood-state');
+        
+        console.log('Found mood options:', moodOptions.length);
+        console.log('Found mood state input:', !!moodStateInput);
+        
+        moodOptions.forEach((option, index) => {
+            console.log(`Setting up mood option ${index}: ${option.dataset.mood}`);
+            
             option.addEventListener('click', function() {
-                form.querySelectorAll('.mood-option').forEach(opt => opt.classList.remove('selected'));
+                console.log(`Mood option clicked: ${this.dataset.mood}`);
+                
+                // Remove selected class from all mood options
+                moodOptions.forEach(opt => {
+                    opt.classList.remove('selected');
+                    console.log(`Removed selected from: ${opt.dataset.mood}`);
+                });
+                
+                // Add selected class to clicked option
                 this.classList.add('selected');
-                const moodInput = form.querySelector('#mood-state');
-                if (moodInput) moodInput.value = this.dataset.mood;
+                console.log(`Added selected to: ${this.dataset.mood}`);
+                
+                // Update hidden input value
+                if (moodStateInput) {
+                    moodStateInput.value = this.dataset.mood;
+                    console.log(`Updated mood state input to: ${this.dataset.mood}`);
+                } else {
+                    console.error('Mood state input not found');
+                }
+                
+                // Add visual feedback
+                this.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
             });
         });
         
         // Handle form submission
         form.addEventListener('submit', function(e) {
             e.preventDefault();
+            console.log('Modal form submitted');
             
             const formData = new FormData(form);
             const data = {
@@ -1516,13 +1577,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 notes: formData.get('notes')
             };
             
+            console.log('Form data collected:', data);
+            
+            // Validate that mood is selected
             if (!data.mood_state) {
-                showNotification('Please select your current mood.', 'error');
+                alert('Please select your current mood.');
+                console.error('No mood selected');
                 return;
             }
             
+            // Validate slider values
+            const requiredFields = ['overall_energy', 'motivation_level', 'focus_clarity', 'physical_energy'];
+            const missingFields = requiredFields.filter(field => !data[field] || isNaN(parseInt(data[field])));
+            
+            if (missingFields.length > 0) {
+                alert('Please set all energy levels using the sliders.');
+                console.error('Missing or invalid fields:', missingFields);
+                return;
+            }
+            
+            console.log('Validation passed, saving insights...');
             saveEnergyInsights(data);
         });
+        
+        console.log('Modal form initialization complete');
     }
 
     // Show energy insights modal when starting a timer
@@ -2006,8 +2084,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Energy Insights Chart - End
-
     // Enhanced Energy Analytics Functions
     function generateEnergyAnalytics() {
         // Fetch both energy insights and timer logs for comprehensive analysis
@@ -2444,8 +2520,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                 }
-            }
-        });
+            });
     }
 
     function createWeeklyTrendChart(data) {
@@ -2729,6 +2804,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const startBtn = timer.querySelector('.start-timer-btn');
                         const pauseBtn = timer.querySelector('.pause-timer-btn');
                         const stopBtn = timer.querySelector('.stop-timer-btn');
+                        const resumeBtn = timer.querySelector('.resume-timer-btn');
                         
                         if (startBtn) startBtn.style.display = 'none';
                         if (pauseBtn) pauseBtn.style.display = 'inline-flex';

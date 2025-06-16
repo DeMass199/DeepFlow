@@ -395,14 +395,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Energy Chart Section -->
-                <div class="timer-list-section">
-                    <h3><i class="fas fa-chart-area"></i> Energy Trends</h3>
-                    <div class="energy-chart-container">
-                        <canvas id="energy-chart"></canvas>
-                    </div>
-                </div>
             </div>
 
             <!-- Sound Options Section -->
@@ -439,6 +431,108 @@
         </main>
     </div>
 
+    <!-- Energy Check-in Modal for Timer Start -->
+    <div id="energy-checkin-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-bolt"></i> Quick Energy Check-in</h2>
+                <p>How are you feeling before starting your focus session?</p>
+            </div>
+            
+            <form id="timer-energy-checkin-form">
+                <div class="energy-checkin-grid">
+                    <div class="energy-group">
+                        <label for="start-energy-level">
+                            <i class="fas fa-battery-three-quarters"></i> Energy Level
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="start-energy-level" name="energy_level" min="1" max="10" value="5" class="energy-slider">
+                            <div class="slider-labels">
+                                <span>Low</span>
+                                <span class="energy-value">5</span>
+                                <span>High</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="energy-group">
+                        <label for="start-focus-level">
+                            <i class="fas fa-bullseye"></i> Focus Level
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="start-focus-level" name="focus_level" min="1" max="10" value="5" class="energy-slider">
+                            <div class="slider-labels">
+                                <span>Scattered</span>
+                                <span class="energy-value">5</span>
+                                <span>Sharp</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" id="cancel-timer-start" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" id="confirm-timer-start" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Start Timer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Energy Check-in Modal for Timer End -->
+    <div id="energy-end-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-chart-line"></i> Session Complete!</h2>
+                <p>How are you feeling after your focus session?</p>
+            </div>
+            
+            <form id="timer-end-energy-form">
+                <div class="energy-checkin-grid">
+                    <div class="energy-group">
+                        <label for="end-energy-level">
+                            <i class="fas fa-battery-three-quarters"></i> Energy Level
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="end-energy-level" name="energy_level" min="1" max="10" value="5" class="energy-slider">
+                            <div class="slider-labels">
+                                <span>Drained</span>
+                                <span class="energy-value">5</span>
+                                <span>Energized</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="energy-group">
+                        <label for="end-focus-level">
+                            <i class="fas fa-bullseye"></i> Focus Level
+                        </label>
+                        <div class="slider-container">
+                            <input type="range" id="end-focus-level" name="focus_level" min="1" max="10" value="5" class="energy-slider">
+                            <div class="slider-labels">
+                                <span>Scattered</span>
+                                <span class="energy-value">5</span>
+                                <span>Sharp</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" id="skip-end-checkin" class="btn btn-secondary">
+                        <i class="fas fa-forward"></i> Skip
+                    </button>
+                    <button type="submit" id="confirm-end-checkin" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- JavaScript for functionality -->
     <script src="{{ url_for('static', filename='js/duration-dropdown.js') }}"></script>
     <script src="{{ url_for('static', filename='js/timer-countdown.js') }}"></script>
@@ -456,27 +550,7 @@
             let audioPlayer = null;
             let currentSound = null;
 
-            // Add direct click handlers for timer buttons
-            document.addEventListener('click', function(event) {
-                // Find closest timer button
-                const startBtn = event.target.closest('.start-timer-btn');
-                if (startBtn) {
-                    event.preventDefault();
-                    const timerId = startBtn.getAttribute('data-timer-id');
-                    console.log(`Direct handler: Start button clicked for timer ${timerId}`);
-                    updateTimer(timerId, 'start');
-                    return;
-                }
-                
-                const stopBtn = event.target.closest('.stop-timer-btn');
-                if (stopBtn) {
-                    event.preventDefault();
-                    const timerId = stopBtn.getAttribute('data-timer-id');
-                    console.log(`Direct handler: Stop button clicked for timer ${timerId}`);
-                    updateTimer(timerId, 'stop');
-                    return;
-                }
-            });
+
 
             // Setup accessibility toggles
             const fontToggle = document.getElementById('toggle-font');
@@ -578,6 +652,10 @@
                     updateTimer(timerId, 'resume');
                 }
             });
+            
+            // Initialize energy modal event listeners
+            initializeEnergyModalEventListeners();
+            initializeEndEnergyModalEventListeners();
         });
         
         // Flow Shelf Functions
@@ -938,9 +1016,8 @@
                         const remainingSeconds = Math.max(0, duration - elapsedSeconds);
                         
                         if (remainingSeconds <= 0) {
-                            // Timer finished
-                            countdownElement.querySelector('.time-display').textContent = "Time's up!";
-                            updateTimer(timerId, 'stop');
+                            // Timer finished - use completeTimer for energy check-in
+                            completeTimer(timerId);
                             return;
                         }
                         
@@ -1074,9 +1151,8 @@
                         const remainingSeconds = Math.max(0, duration - elapsedSeconds);
                         
                         if (remainingSeconds <= 0) {
-                            // Timer finished
-                            countdownElement.querySelector('.time-display').textContent = "Time's up!";
-                            updateTimer(timerId, 'stop');
+                            // Timer finished - use completeTimer for energy check-in
+                            completeTimer(timerId);
                             return;
                         }
                         
@@ -1332,7 +1408,7 @@
                 colorIndex++;
             }
             
-            new Chart(ctx, {
+            const chart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     datasets: datasets
@@ -1380,8 +1456,7 @@
                             }
                         }
                     }
-                }
-            });
+                });
         }
     </script>
     
@@ -1485,5 +1560,344 @@
     
     <!-- Add timer display helper -->
     <script src="{{ url_for('static', filename='js/timer-display-helper.js') }}"></script>
+    <script>
+        // Energy Check-in Modal Functions
+        let pendingTimerId = null;
+        
+        function showEnergyCheckinModal(timerId) {
+            pendingTimerId = timerId;
+            const modal = document.getElementById('energy-checkin-modal');
+            
+            // Reset slider values
+            document.getElementById('start-energy-level').value = 5;
+            document.getElementById('start-focus-level').value = 5;
+            
+            // Update value displays
+            updateModalSliderValues();
+            
+            // Show modal with animation
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+            
+            // Focus on first slider for accessibility
+            document.getElementById('start-energy-level').focus();
+        }
+        
+        function hideEnergyCheckinModal() {
+            const modal = document.getElementById('energy-checkin-modal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                pendingTimerId = null;
+            }, 300);
+        }
+        
+        function updateModalSliderValues() {
+            const energySlider = document.getElementById('start-energy-level');
+            const focusSlider = document.getElementById('start-focus-level');
+            
+            if (!energySlider || !focusSlider) {
+                console.error('Start modal sliders not found');
+                return;
+            }
+            
+            const energyValue = energySlider.closest('.slider-container').querySelector('.energy-value');
+            const focusValue = focusSlider.closest('.slider-container').querySelector('.energy-value');
+            
+            if (!energyValue || !focusValue) {
+                console.error('Start modal slider value displays not found');
+                return;
+            }
+            
+            const updateSliderValue = (slider, valueSpan) => {
+                const value = slider.value;
+                const min = slider.min || 1;
+                const max = slider.max || 10;
+                
+                valueSpan.textContent = value;
+                
+                // Position the value display to align with the thumb
+                const percentage = ((value - min) / (max - min)) * 100;
+                const offset = (percentage - 50) * 0.8;
+                valueSpan.style.transform = `translateX(calc(-50% + ${offset}%))`;
+            };
+            
+            // Update current values
+            updateSliderValue(energySlider, energyValue);
+            updateSliderValue(focusSlider, focusValue);
+        }
+        
+        // Function to initialize modal event listeners
+        function initializeEnergyModalEventListeners() {
+            const modal = document.getElementById('energy-checkin-modal');
+            const cancelBtn = document.getElementById('cancel-timer-start');
+            const form = document.getElementById('timer-energy-checkin-form');
+            const energySlider = document.getElementById('start-energy-level');
+            const focusSlider = document.getElementById('start-focus-level');
+            
+            if (modal && cancelBtn && form && energySlider && focusSlider) {
+                // Cancel button
+                cancelBtn.addEventListener('click', hideEnergyCheckinModal);
+                
+                // Click outside modal to close
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        hideEnergyCheckinModal();
+                    }
+                });
+                
+                // ESC key to close
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && modal.style.display === 'flex') {
+                        hideEnergyCheckinModal();
+                    }
+                });
+                
+                // Slider event listeners for real-time updates
+                const energyValue = energySlider.closest('.slider-container').querySelector('.energy-value');
+                const focusValue = focusSlider.closest('.slider-container').querySelector('.energy-value');
+                
+                const updateSliderValue = (slider, valueSpan) => {
+                    const value = slider.value;
+                    const min = slider.min || 1;
+                    const max = slider.max || 10;
+                    
+                    valueSpan.textContent = value;
+                    
+                    // Position the value display to align with the thumb
+                    const percentage = ((value - min) / (max - min)) * 100;
+                    const offset = (percentage - 50) * 0.8;
+                    valueSpan.style.transform = `translateX(calc(-50% + ${offset}%))`;
+                };
+                
+                if (energyValue && focusValue) {
+                    energySlider.addEventListener('input', () => updateSliderValue(energySlider, energyValue));
+                    focusSlider.addEventListener('input', () => updateSliderValue(focusSlider, focusValue));
+                }
+                
+                // Form submission
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    if (!pendingTimerId) {
+                        console.error('No pending timer ID');
+                        return;
+                    }
+                    
+                    const energyLevel = energySlider.value;
+                    const focusLevel = focusSlider.value;
+                    
+                    console.log(`Submitting start energy: Energy=${energyLevel}, Focus=${focusLevel}, Timer=${pendingTimerId}`);
+                    
+                    // Log the starting energy levels
+                    logStartingEnergy(pendingTimerId, energyLevel, focusLevel)
+                        .then(() => {
+                            // Hide modal
+                            hideEnergyCheckinModal();
+                            
+                            // Start the timer
+                            updateTimer(pendingTimerId, 'start');
+                        })
+                        .catch(error => {
+                            console.error('Error logging starting energy:', error);
+                            // Still start the timer even if logging fails
+                            hideEnergyCheckinModal();
+                            updateTimer(pendingTimerId, 'start');
+                        });
+                });
+            } else {
+                console.error('Could not find all required elements for start energy modal');
+            }
+        }
+        
+        // Function to log starting energy levels
+        async function logStartingEnergy(timerId, energyLevel, focusLevel) {
+            try {
+                const response = await fetch('/log_energy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        timer_id: timerId,
+                        stage: 'start',
+                        energy_level: energyLevel,
+                        focus_level: focusLevel
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Starting energy logged successfully:', result);
+                return result;
+            } catch (error) {
+                console.error('Error logging starting energy:', error);
+                throw error;
+            }
+        }
+        
+        // End Timer Energy Check-in Modal Functions
+        let completedTimerId = null;
+        
+        function showEndEnergyModal(timerId) {
+            completedTimerId = timerId;
+            const modal = document.getElementById('energy-end-modal');
+            
+            // Reset slider values
+            document.getElementById('end-energy-level').value = 5;
+            document.getElementById('end-focus-level').value = 5;
+            
+            // Update value displays
+            updateEndModalSliderValues();
+            
+            // Show modal with animation
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+            
+            // Focus on first slider for accessibility
+            document.getElementById('end-energy-level').focus();
+        }
+        
+        function hideEndEnergyModal() {
+            const modal = document.getElementById('energy-end-modal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                completedTimerId = null;
+            }, 300);
+        }
+        
+        function updateEndModalSliderValues() {
+            const energySlider = document.getElementById('end-energy-level');
+            const focusSlider = document.getElementById('end-focus-level');
+            
+            if (!energySlider || !focusSlider) {
+                console.error('End modal sliders not found');
+                return;
+            }
+            
+            const energyValue = energySlider.closest('.slider-container').querySelector('.energy-value');
+            const focusValue = focusSlider.closest('.slider-container').querySelector('.energy-value');
+            
+            if (!energyValue || !focusValue) {
+                console.error('End modal slider value displays not found');
+                return;
+            }
+            
+            const updateSliderValue = (slider, valueSpan) => {
+                const value = slider.value;
+                const min = slider.min || 1;
+                const max = slider.max || 10;
+                
+                valueSpan.textContent = value;
+                
+                // Position the value display to align with the thumb
+                const percentage = ((value - min) / (max - min)) * 100;
+                const offset = (percentage - 50) * 0.8;
+                valueSpan.style.transform = `translateX(calc(-50% + ${offset}%))`;
+            };
+            
+            // Update current values
+            updateSliderValue(energySlider, energyValue);
+            updateSliderValue(focusSlider, focusValue);
+        }
+        
+        // Function to log ending energy levels
+        async function logEndingEnergy(timerId, energyLevel, focusLevel) {
+            try {
+                const response = await fetch('/log_energy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        timer_id: timerId,
+                        stage: 'end',
+                        energy_level: energyLevel,
+                        focus_level: focusLevel
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Ending energy logged successfully:', result);
+                return result;
+            } catch (error) {
+                console.error('Error logging ending energy:', error);
+                throw error;
+            }
+        }
+        
+        // Function to initialize end energy modal event listeners
+        function initializeEndEnergyModalEventListeners() {
+            // End timer modal event listeners
+            const endModal = document.getElementById('energy-end-modal');
+            const skipBtn = document.getElementById('skip-end-checkin');
+            const endForm = document.getElementById('timer-end-energy-form');
+            
+            if (endModal && skipBtn && endForm) {
+                // Skip button
+                skipBtn.addEventListener('click', hideEndEnergyModal);
+                
+                // Click outside modal to close
+                endModal.addEventListener('click', function(e) {
+                    if (e.target === endModal) {
+                        hideEndEnergyModal();
+                    }
+                });
+                
+                // Form submission for end modal
+                endForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    if (!completedTimerId) {
+                        console.error('No completed timer ID');
+                        return;
+                    }
+                    
+                    const energyLevel = document.getElementById('end-energy-level').value;
+                    const focusLevel = document.getElementById('end-focus-level').value;
+                    
+                    // Log the ending energy levels
+                    logEndingEnergy(completedTimerId, energyLevel, focusLevel)
+                        .then(() => {
+                            console.log('End energy logged successfully');
+                            hideEndEnergyModal();
+                        })
+                        .catch(error => {
+                            console.error('Error logging ending energy:', error);
+                            hideEndEnergyModal();
+                        });
+                });
+            }
+        }
+        
+        // Function to handle timer completion with energy check-in
+        function completeTimer(timerId) {
+            // Clear the timer interval first
+            if (window.activeTimers && window.activeTimers[timerId]) {
+                clearInterval(window.activeTimers[timerId]);
+                delete window.activeTimers[timerId];
+            }
+            
+            // Update timer display to show completion
+            const timerElement = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+            if (timerElement) {
+                const countdownElement = timerElement.querySelector('.timer-countdown');
+                if (countdownElement) {
+                    countdownElement.querySelector('.time-display').textContent = "Time's up!";
+                }
+            }
+            
+            // Show end energy check-in modal
+            showEndEnergyModal(timerId);
+        }
+    </script>
 </body>
 </html>

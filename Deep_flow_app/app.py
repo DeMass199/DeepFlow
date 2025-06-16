@@ -683,9 +683,10 @@ def log_energy():
         timer_id = data.get("timer_id")
         stage = data.get("stage")  # 'start' or 'end'
         energy_level = data.get("energy_level")  # 1-10
+        focus_level = data.get("focus_level")  # 1-10 (optional)
         
         if not all([timer_id, stage, energy_level]):
-            return {"error": "All fields are required"}, 400
+            return {"error": "Timer ID, stage, and energy level are required"}, 400
         
         if stage not in ['start', 'end']:
             return {"error": "Stage must be 'start' or 'end'"}, 400
@@ -694,8 +695,14 @@ def log_energy():
             energy_level = int(energy_level)
             if not (1 <= energy_level <= 10):
                 return {"error": "Energy level must be between 1 and 10"}, 400
+                
+            # Validate focus level if provided
+            if focus_level is not None:
+                focus_level = int(focus_level)
+                if not (1 <= focus_level <= 10):
+                    return {"error": "Focus level must be between 1 and 10"}, 400
         except (ValueError, TypeError):
-            return {"error": "Energy level must be a number"}, 400
+            return {"error": "Energy and focus levels must be numbers"}, 400
         
         try:
             conn = sqlite3.connect(DB_PATH)
@@ -711,17 +718,28 @@ def log_energy():
                 conn.close()
                 return {"error": "Timer not found or doesn't belong to user"}, 404
             
+            # Insert energy log
             cursor.execute("""
                 INSERT INTO energy_logs (user_id, timer_id, stage, energy_level)
                 VALUES (?, ?, ?, ?)
             """, (session['user_id'], timer_id, stage, energy_level))
+            
+            # If focus level is provided, also save as energy insight
+            if focus_level is not None and stage == 'start':
+                cursor.execute("""
+                    INSERT INTO energy_insights 
+                    (user_id, overall_energy, motivation_level, focus_clarity, physical_energy, 
+                     mood_state, energy_source, energy_drains, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (session['user_id'], energy_level, focus_level, focus_level, energy_level,
+                      'focused', 'Starting timer session', '', f'Timer start - Energy: {energy_level}, Focus: {focus_level}'))
             
             conn.commit()
             conn.close()
             
             return {
                 "success": True,
-                "message": "Energy level logged"
+                "message": "Energy level logged successfully"
             }, 200
         except sqlite3.Error as e:
             logger.error("Error logging energy: %s", str(e))
