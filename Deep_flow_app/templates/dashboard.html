@@ -312,16 +312,15 @@
                 </div>
             </div>
 
-            <!-- Energy Insights Section -->
+            <!-- Energy Insights Section (Commented out static form, chart display area added) -->
+            <!--
             <div class="timer-container">
                 <h2><i class="fas fa-bolt"></i> Energy Check-In</h2>
                 <p>Track how you're feeling right now to build insights about your focus patterns.</p>
                 
-                <!-- Add Energy Insight Form -->
                 <div class="timer-form">
                     <form id="add-energy-insight-form">
                         <div class="energy-insights-form-layout">
-                            <!-- Row 1: Energy and Focus Levels -->
                             <div class="form-row">
                                 <div class="form-group half-width">
                                     <label for="energy-level">
@@ -352,7 +351,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Row 2: Mood Selection -->
                             <div class="form-row">
                                 <div class="form-group full-width">
                                     <label for="mood-select">
@@ -371,7 +369,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Row 3: Submit Button -->
                             <div class="form-row">
                                 <div class="form-group full-width">
                                     <button type="submit" class="btn btn-start btn-large" id="add-insight-btn">
@@ -382,16 +379,21 @@
                         </div>
                     </form>
                 </div>
+            </div>
+            -->
 
-                <!-- Energy Insights List -->
+            <div class="timer-container"> <!-- This container now just holds the insights list/chart -->
                 <div class="timer-list-section">
                     <h3><i class="fas fa-chart-line"></i> Your Energy Insights</h3>
-                    <div class="timer-list" id="energy-insights-list">
-                        <!-- Energy insights will be loaded here via JavaScript -->
-                        <div class="empty-state" id="empty-insights">
-                            <i class="fas fa-bolt"></i>
-                            <h3>No energy insights yet</h3>
-                            <p>Start tracking your energy levels to gain insights into your focus patterns.</p>
+                    <div class="energy-insights"> <!-- Added a wrapper for chart and list -->
+                        <canvas id="energy-chart" style="display: none; width: 100%; height: 300px;"></canvas>
+                        <div class="timer-list" id="energy-insights-list">
+                            <!-- Energy insights will be loaded here via JavaScript -->
+                            <div class="empty-state" id="empty-insights">
+                                <i class="fas fa-bolt"></i>
+                                <h3>No energy insights yet</h3>
+                                <p>Start tracking your energy levels to gain insights into your focus patterns.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -790,8 +792,8 @@
                     e.preventDefault();
                     const timerId = this.getAttribute('data-timer-id');
                     if (timerId) {
-                        console.log('Starting timer:', timerId);
-                        updateTimer(timerId, 'start');
+                        console.log('Showing energy check-in for timer:', timerId);
+                        showEnergyCheckinModal(timerId); // MODIFIED: Show modal instead of starting timer directly
                     } else {
                         console.error('No timer ID found on button:', this);
                     }
@@ -1101,19 +1103,22 @@
                 timer.setAttribute('data-running', '1'); // Running state
                 
                 // Calculate new start time based on elapsed time before pause
-                const originalStartTime = timer.getAttribute('data-start-time');
-                const pausedAtTime = timer.getAttribute('data-paused-at');
+                const originalStartTimeString = timer.getAttribute('data-start-time');
+                const pausedAtTimeString = timer.getAttribute('data-paused-at');
                 const countdownEl = timer.querySelector('.timer-countdown');
                 
-                if (originalStartTime && pausedAtTime && countdownEl) {
-                    const originalStart = new Date(originalStartTime);
-                    const pausedAt = new Date(pausedAtTime);
-                    const elapsedBeforePause = Math.floor((pausedAt - originalStart) / 1000);
+                if (originalStartTimeString && pausedAtTimeString && countdownEl) {
+                    const originalStart = new Date(originalStartTimeString);
+                    const pausedAt = new Date(pausedAtTimeString);
+                    const elapsedBeforePauseMs = pausedAt.getTime() - originalStart.getTime(); // Elapsed time in milliseconds
                     
                     // Set new start time as if timer started now minus elapsed time
                     const now = new Date();
-                    const adjustedStartTime = new Date(now.getTime() - (elapsedBeforePause * 1000));
+                    const adjustedStartTime = new Date(now.getTime() - elapsedBeforePauseMs);
+                    
                     timer.setAttribute('data-start-time', adjustedStartTime.toISOString());
+                    // Ensure the countdown element also reflects the adjusted start time for consistency
+                    countdownEl.setAttribute('data-started', adjustedStartTime.toISOString()); 
                 }
                 
                 // Toggle buttons
@@ -1874,7 +1879,7 @@
                             console.error('Error logging ending energy:', error);
                             hideEndEnergyModal();
                         });
-                });
+                                                             });
             }
         }
         
