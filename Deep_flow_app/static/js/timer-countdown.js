@@ -91,13 +91,19 @@ document.addEventListener('DOMContentLoaded', function() {
         window.timerCountdowns[timerId] = setInterval(function() {
             const isComplete = updateCountdownDisplay(countdownEl, endTime, timerId);
             
-            // If countdown is complete, clear interval
+            // If countdown is complete, clear interval and show energy check-in
             if (isComplete) {
                 clearInterval(window.timerCountdowns[timerId]);
                 delete window.timerCountdowns[timerId];
                 
-                // Handle timer completion - reload to get server state
-                window.location.reload();
+                // Show the energy check-in modal instead of reloading
+                console.log(`Timer ${timerId} finished. Showing energy check-in modal.`);
+                if (window.showEnergyCheckinModal) {
+                    window.showEnergyCheckinModal(timerId, 'end');
+                } else {
+                    console.error('showEnergyCheckinModal function not found. Reloading as a fallback.');
+                    window.location.reload();
+                }
             }
         }, 1000);
     }

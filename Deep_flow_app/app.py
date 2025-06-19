@@ -342,20 +342,12 @@ def dashboard():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        # Stop paused timers and reset them to show original duration
-        cursor.execute("""
-            UPDATE timers
-            SET is_running = 0, paused_at = NULL, start_time = NULL, end_time = NULL
-            WHERE user_id = ? AND is_running = 2
-        """, (user_id,))
-        conn.commit()
-
-        # Fetch updated timers
+        # Fetch timers without resetting paused ones
         cursor.execute("SELECT * FROM timers WHERE user_id = ?", (user_id,))
         timers = cursor.fetchall()
         conn.close()
     except sqlite3.Error as e:
-        logger.error("Error fetching or updating timers: %s", str(e))
+        logger.error("Error fetching timers: %s", str(e))
         flash("Failed to load timers.", "error")
     
     return render_template("dashboard.html", timers=timers)  # Render dashboard.html
@@ -723,23 +715,29 @@ def log_energy():
                 INSERT INTO energy_logs (user_id, timer_id, stage, energy_level)
                 VALUES (?, ?, ?, ?)
             """, (session['user_id'], timer_id, stage, energy_level))
-            
-            # If focus level is provided, also save as energy insight
-            if focus_level is not None and stage == 'start':
+
+            # If the stage is 'start', also start the timer
+            if stage == 'start':
                 cursor.execute("""
-                    INSERT INTO energy_insights 
-                    (user_id, overall_energy, motivation_level, focus_clarity, physical_energy, 
-                     mood_state, energy_source, energy_drains, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (session['user_id'], energy_level, focus_level, focus_level, energy_level,
-                      'focused', 'Starting timer session', '', f'Timer start - Energy: {energy_level}, Focus: {focus_level}'))
+                    UPDATE timers
+                    SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL, paused_at = NULL
+                    WHERE id = ? AND user_id = ?
+                """, (timer_id, session['user_id']))
+                logger.debug(f"Timer {timer_id} started automatically after energy log.")
+            elif stage == 'end':
+                cursor.execute("""
+                    UPDATE timers
+                    SET is_running = 0, end_time = datetime('now', 'localtime')
+                    WHERE id = ? AND user_id = ?
+                """, (timer_id, session['user_id']))
+                logger.debug(f"Timer {timer_id} stopped automatically after energy log.")
             
             conn.commit()
             conn.close()
             
             return {
                 "success": True,
-                "message": "Energy level logged successfully"
+                "message": "Energy logged and timer action completed successfully"
             }, 200
         except sqlite3.Error as e:
             logger.error("Error logging energy: %s", str(e))
@@ -786,6 +784,90 @@ def get_energy_logs():
     except sqlite3.Error as e:
         logger.error("Error getting energy logs: %s", str(e))
         return {"error": "Database error"}, 500
+
+
+# New timer control routes
+@app.route("/start_timer/<int:timer_id>", methods=["POST"])
+def start_timer_route(timer_id):
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    # You can reuse the logic from update_timer or call a helper function
+    # For simplicity, we'll just update the state here
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE timers
+            SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL, paused_at = NULL
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        conn.commit()
+        conn.close()
+        return {"success": True, "message": "Timer started successfully"}
+    except sqlite3.Error as e:
+        logger.error(f"Error starting timer: {e}")
+        return {"success": False, "error": "Database error"}, 500
+
+@app.route("/pause_timer/<int:timer_id>", methods=["POST"])
+def pause_timer_route(timer_id):
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE timers
+            SET is_running = 2, paused_at = datetime('now', 'localtime')
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        conn.commit()
+        conn.close()
+        return {"success": True, "message": "Timer paused successfully"}
+    except sqlite3.Error as e:
+        logger.error(f"Error pausing timer: {e}")
+        return {"success": False, "error": "Database error"}, 500
+
+@app.route("/resume_timer/<int:timer_id>", methods=["POST"])
+def resume_timer_route(timer_id):
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE timers
+            SET is_running = 1, paused_at = NULL
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        conn.commit()
+        conn.close()
+        return {"success": True, "message": "Timer resumed successfully"}
+    except sqlite3.Error as e:
+        logger.error(f"Error resuming timer: {e}")
+        return {"success": False, "error": "Database error"}, 500
+
+@app.route("/stop_timer/<int:timer_id>", methods=["POST"])
+def stop_timer_route(timer_id):
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE timers
+            SET is_running = 0, end_time = datetime('now', 'localtime')
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        conn.commit()
+        conn.close()
+        return {"success": True, "message": "Timer stopped successfully"}
+    except sqlite3.Error as e:
+        logger.error(f"Error stopping timer: {e}")
+        return {"success": False, "error": "Database error"}, 500
 
 
 # Energy Insights API Endpoints
