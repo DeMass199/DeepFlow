@@ -121,9 +121,17 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
+                password TEXT NOT NULL,
+                country TEXT DEFAULT 'US'
             )
         """)
+        
+        # Add country column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN country TEXT DEFAULT 'US'")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
         
         # Create the timers table in Deepflow.db
         cursor.execute("""
@@ -251,6 +259,7 @@ def login():
         if user:
             session['user_id'] = user[0]  # Set user ID in session
             session['username'] = user[1]  # Set username in session
+            session['just_logged_in'] = True  # Flag for first dashboard visit
             flash("Login successful!", "success")
             return redirect(url_for("dashboard"))  # Redirect to dashboard
         else:
@@ -337,6 +346,25 @@ def dashboard():
         return redirect(url_for("login"))
     
     user_id = session['user_id']
+
+    # If the user just logged in, reset any running or paused timers
+    if session.pop('just_logged_in', False):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            # Reset any timers that were running or paused
+            cursor.execute("""
+                UPDATE timers 
+                SET is_running = 0, start_time = NULL, end_time = NULL, paused_at = NULL
+                WHERE user_id = ? AND is_running IN (1, 2)
+            """, (user_id,))
+            conn.commit()
+            conn.close()
+            logger.info("Reset all active timers for user %d on new login.", user_id)
+        except sqlite3.Error as e:
+            logger.error("Error resetting timers for user %d on login: %s", user_id, str(e))
+            flash("There was an issue resetting your timer states.", "error")
+
     timers = []
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -710,11 +738,22 @@ def log_energy():
                 conn.close()
                 return {"error": "Timer not found or doesn't belong to user"}, 404
             
-            # Insert energy log
+            # Insert energy log for simple tracking
             cursor.execute("""
                 INSERT INTO energy_logs (user_id, timer_id, stage, energy_level)
                 VALUES (?, ?, ?, ?)
             """, (session['user_id'], timer_id, stage, energy_level))
+
+            # Also insert into the detailed energy_insights table for graphing
+            # We'll use the single energy_level for all numeric insight fields
+            # and provide default values for text fields.
+            cursor.execute("""
+                INSERT INTO energy_insights 
+                (user_id, overall_energy, motivation_level, focus_clarity, physical_energy, 
+                 mood_state, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (session['user_id'], energy_level, energy_level, energy_level, 
+                  energy_level, 'check-in', f'Logged from timer {stage}'))
 
             # If the stage is 'start', also start the timer
             if stage == 'start':
@@ -748,42 +787,66 @@ def log_energy():
 
 @app.route("/get_energy_logs", methods=["GET"])
 def get_energy_logs():
-    """Get energy logs for the user"""
+    """Get energy logs for the user from both energy_logs and energy_insights"""
     if 'user_id' not in session:
-        return {"error": "Not authenticated"}, 401
+        return {"error": "Not authenticated", "success": False}, 401
+    
+    user_id = session['user_id']
     
     try:
         conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row  # This enables column access by name
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Join with timers to get timer names
+        all_logs = []
+        
+        # Get logs from energy_logs (check-ins)
         cursor.execute("""
-            SELECT e.id, e.timer_id, t.name as timer_name, e.stage, 
-                   e.energy_level, e.timestamp
+            SELECT 
+                e.timestamp,
+                e.energy_level,
+                t.name as timer_name,
+                e.stage
             FROM energy_logs e
             JOIN timers t ON e.timer_id = t.id
             WHERE e.user_id = ?
-            ORDER BY e.timestamp DESC
-        """, (session['user_id'],))
+        """, (user_id,))
         
-        logs = []
-        for row in cursor:
-            logs.append({
-                "id": row["id"],
-                "timer_id": row["timer_id"],
-                "timer_name": row["timer_name"],
-                "stage": row["stage"],
+        for row in cursor.fetchall():
+            all_logs.append({
+                "type": "check-in",
+                "timestamp": row["timestamp"],
                 "energy_level": row["energy_level"],
-                "timestamp": row["timestamp"]
+                "timer_name": row["timer_name"],
+                "stage": row["stage"]
+            })
+            
+        # Get logs from energy_insights (detailed insights)
+        cursor.execute("""
+            SELECT 
+                timestamp,
+                overall_energy
+            FROM energy_insights
+            WHERE user_id = ?
+        """, (user_id,))
+
+        for row in cursor.fetchall():
+            all_logs.append({
+                "type": "insight",
+                "timestamp": row["timestamp"],
+                "energy_level": row["overall_energy"]
             })
         
         conn.close()
         
-        return {"logs": logs}, 200
+        # Sort all logs by timestamp in ascending order for the chart
+        all_logs.sort(key=lambda x: x['timestamp'])
+        
+        return {"success": True, "logs": all_logs}, 200
+        
     except sqlite3.Error as e:
-        logger.error("Error getting energy logs: %s", str(e))
-        return {"error": "Database error"}, 500
+        logger.error("Error getting combined energy logs: %s", str(e))
+        return {"error": "Database error", "success": False}, 500
 
 
 # New timer control routes
@@ -996,6 +1059,18 @@ def settings():
 
     username = session.get('username', '')
     
+    # Get current user's country
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT country FROM users WHERE id = ?", (session['user_id'],))
+        result = cursor.fetchone()
+        current_country = result[0] if result else 'US'
+        conn.close()
+    except sqlite3.Error as e:
+        logger.error("Error fetching user country: %s", str(e))
+        current_country = 'US'
+    
     if request.method == "POST":
         action = request.form.get("action")
         
@@ -1066,9 +1141,30 @@ def settings():
                         except sqlite3.Error as e:
                             logger.error("Error updating password: %s", str(e))
                             flash("Failed to update password.", "error")
+                            
+        elif action == "update_country":
+            new_country = request.form.get("country", "").strip()
+            
+            # Validate country code
+            valid_countries = ['US', 'UK', 'AU', 'CA', 'DE', 'FR', 'ES', 'IT', 'JP', 'CN', 'IN', 'BR']
+            if new_country in valid_countries:
+                try:
+                    conn = sqlite3.connect(DB_PATH)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE users SET country = ? WHERE id = ?", 
+                                (new_country, session['user_id']))
+                    conn.commit()
+                    conn.close()
+                    current_country = new_country
+                    flash("Country updated successfully!", "success")
+                except sqlite3.Error as e:
+                    logger.error("Error updating country: %s", str(e))
+                    flash("Failed to update country.", "error")
+            else:
+                flash("Invalid country selection.", "error")
     
     last_updated = datetime.now().strftime("%B %d, %Y")
-    return render_template("settings.html", username=username, last_updated=last_updated)
+    return render_template("settings.html", username=username, last_updated=last_updated, current_country=current_country)
 
 
 @app.route("/export_user_data")
@@ -1182,6 +1278,80 @@ def privacy_user():
         flash("Please login to view the full privacy policy.", "error")
         return redirect(url_for("login"))
     return render_template("privacy_policy_user.html")
+
+@app.route("/update_country_preference", methods=["POST"])
+def update_country_preference():
+    """Update user's country preference via AJAX"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    if request.is_json:
+        data = request.get_json()
+        country = data.get("country")
+    else:
+        country = request.form.get("country")
+    
+    # Validate country code
+    valid_countries = ['US', 'UK', 'AU', 'CA', 'DE', 'FR', 'ES', 'IT', 'JP', 'CN', 'IN', 'BR']
+    if country not in valid_countries:
+        return {"error": "Invalid country code"}, 400
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET country = ? WHERE id = ?", 
+                    (country, session['user_id']))
+        conn.commit()
+        conn.close()
+        
+        return {"success": True, "message": "Country updated successfully"}, 200
+    except sqlite3.Error as e:
+        logger.error("Error updating country preference: %s", str(e))
+        return {"error": "Database error"}, 500
+
+
+@app.route("/get_user_preferences", methods=["GET"])
+def get_user_preferences():
+    """Get user preferences including country and timezone for chart formatting"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT country FROM users WHERE id = ?", (session['user_id'],))
+        result = cursor.fetchone()
+        country = result[0] if result else 'US'
+        conn.close()
+        
+        # Define timezone mappings for each country
+        timezone_mappings = {
+            'US': {'timezone': 'America/New_York', 'offset': -5},  # EST (can vary)
+            'UK': {'timezone': 'Europe/London', 'offset': 0},      # GMT/BST
+            'AU': {'timezone': 'Australia/Sydney', 'offset': 10},  # AEST
+            'CA': {'timezone': 'America/Toronto', 'offset': -5},   # EST
+            'DE': {'timezone': 'Europe/Berlin', 'offset': 1},      # CET
+            'FR': {'timezone': 'Europe/Paris', 'offset': 1},       # CET
+            'ES': {'timezone': 'Europe/Madrid', 'offset': 1},      # CET
+            'IT': {'timezone': 'Europe/Rome', 'offset': 1},        # CET
+            'JP': {'timezone': 'Asia/Tokyo', 'offset': 9},         # JST
+            'CN': {'timezone': 'Asia/Shanghai', 'offset': 8},      # CST
+            'IN': {'timezone': 'Asia/Kolkata', 'offset': 5.5},     # IST
+            'BR': {'timezone': 'America/Sao_Paulo', 'offset': -3}  # BRT
+        }
+        
+        timezone_info = timezone_mappings.get(country, timezone_mappings['US'])
+        
+        return {
+            "success": True, 
+            "country": country,
+            "timezone": timezone_info['timezone'],
+            "timezone_offset": timezone_info['offset']
+        }, 200
+    except sqlite3.Error as e:
+        logger.error("Error getting user preferences: %s", str(e))
+        return {"error": "Database error"}, 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5003)
