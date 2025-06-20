@@ -382,11 +382,61 @@
             </div>
             -->
 
-            <div class="timer-container"> <!-- This container now just holds the insights list/chart -->
+            <div class="timer-container energy-insights-container"> <!-- Enhanced container for insights -->
                 <div class="timer-list-section">
                     <h3><i class="fas fa-chart-line"></i> Your Energy Insights</h3>
-                    <div class="energy-insights"> <!-- Added a wrapper for chart and list -->
-                        <canvas id="energy-chart" style="display: none; width: 100%; height: 300px;"></canvas>
+                    
+                    <!-- Weekly Navigation -->
+                    <div class="weekly-navigation">
+                        <div class="week-selector">
+                            <button class="week-nav-btn" id="prev-week-btn">
+                                <i class="fas fa-chevron-left"></i> Previous Week
+                            </button>
+                            <span class="current-week" id="current-week-display">This Week</span>
+                            <button class="week-nav-btn" id="next-week-btn" disabled>
+                                <i class="fas fa-chevron-right"></i> Next Week
+                            </button>
+                        </div>
+                        <div class="data-range-selector">
+                            <button class="range-btn active" data-range="week">Week</button>
+                            <button class="range-btn" data-range="month">Month</button>
+                            <button class="range-btn" data-range="all">All Time</button>
+                        </div>
+                    </div>
+
+                    <!-- Weekly Feedback Section -->
+                    <div class="weekly-feedback hidden" id="weekly-feedback">
+                        <div class="feedback-header">
+                            <i class="fas fa-lightbulb"></i>
+                            <h4>Weekly Insights</h4>
+                        </div>
+                        <div class="feedback-content">
+                            <div class="feedback-stat">
+                                <span class="feedback-stat-value" id="avg-energy">--</span>
+                                <span class="feedback-stat-label">Average Energy</span>
+                            </div>
+                            <div class="feedback-stat">
+                                <span class="feedback-stat-value" id="total-sessions">--</span>
+                                <span class="feedback-stat-label">Focus Sessions</span>
+                            </div>
+                            <div class="feedback-stat">
+                                <span class="feedback-stat-value" id="best-day">--</span>
+                                <span class="feedback-stat-label">Most Productive Day</span>
+                            </div>
+                            <div class="feedback-stat">
+                                <span class="feedback-stat-value" id="energy-trend">--</span>
+                                <span class="feedback-stat-label">Energy Trend</span>
+                            </div>
+                        </div>
+                        <div class="feedback-insight" id="weekly-insight">
+                            <!-- Dynamic insight message will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <div class="energy-insights"> <!-- Enhanced wrapper for chart and list -->
+                        <div class="energy-chart-container">
+                            <canvas id="energy-chart" style="display: none; width: 100%; height: 400px;"></canvas>
+                        </div>
                         <div class="timer-list" id="energy-insights-list">
                             <!-- Energy insights will be loaded here via JavaScript -->
                             <div class="empty-state" id="empty-insights">

@@ -271,23 +271,33 @@
                     <input type="hidden" name="action" value="update_country">
                     <div class="form-group">
                         <label for="country">Country/Region:</label>
-                        <select id="country" name="country" required onchange="updateCountryPreference(this.value)">
-                            <option value="US" {% if current_country == 'US' %}selected{% endif %}>🇺🇸 United States (EST/EDT, UTC-5/-4)</option>
-                            <option value="UK" {% if current_country == 'UK' %}selected{% endif %}>🇬🇧 United Kingdom (GMT/BST, UTC+0/+1)</option>
-                            <option value="AU" {% if current_country == 'AU' %}selected{% endif %}>🇦🇺 Australia (AEST/AEDT, UTC+10/+11)</option>
-                            <option value="CA" {% if current_country == 'CA' %}selected{% endif %}>🇨🇦 Canada (EST/EDT, UTC-5/-4)</option>
-                            <option value="DE" {% if current_country == 'DE' %}selected{% endif %}>🇩🇪 Germany (CET/CEST, UTC+1/+2)</option>
-                            <option value="FR" {% if current_country == 'FR' %}selected{% endif %}>🇫🇷 France (CET/CEST, UTC+1/+2)</option>
-                            <option value="ES" {% if current_country == 'ES' %}selected{% endif %}>🇪🇸 Spain (CET/CEST, UTC+1/+2)</option>
-                            <option value="IT" {% if current_country == 'IT' %}selected{% endif %}>🇮🇹 Italy (CET/CEST, UTC+1/+2)</option>
-                            <option value="JP" {% if current_country == 'JP' %}selected{% endif %}>🇯🇵 Japan (JST, UTC+9)</option>
-                            <option value="CN" {% if current_country == 'CN' %}selected{% endif %}>🇨🇳 China (CST, UTC+8)</option>
-                            <option value="IN" {% if current_country == 'IN' %}selected{% endif %}>🇮🇳 India (IST, UTC+5:30)</option>
-                            <option value="BR" {% if current_country == 'BR' %}selected{% endif %}>🇧🇷 Brazil (BRT/BRST, UTC-3/-2)</option>
+                        <select id="country" name="country" required onchange="updateCountrySelection(this.value)">
+                            <option value="US" {% if current_country == 'US' %}selected{% endif %}>🇺🇸 United States</option>
+                            <option value="UK" {% if current_country == 'UK' %}selected{% endif %}>🇬🇧 United Kingdom</option>
+                            <option value="AU" {% if current_country == 'AU' %}selected{% endif %}>🇦🇺 Australia</option>
+                            <option value="CA" {% if current_country == 'CA' %}selected{% endif %}>🇨🇦 Canada</option>
+                            <option value="DE" {% if current_country == 'DE' %}selected{% endif %}>🇩🇪 Germany</option>
+                            <option value="FR" {% if current_country == 'FR' %}selected{% endif %}>🇫🇷 France</option>
+                            <option value="ES" {% if current_country == 'ES' %}selected{% endif %}>🇪🇸 Spain</option>
+                            <option value="IT" {% if current_country == 'IT' %}selected{% endif %}>🇮🇹 Italy</option>
+                            <option value="JP" {% if current_country == 'JP' %}selected{% endif %}>🇯🇵 Japan</option>
+                            <option value="CN" {% if current_country == 'CN' %}selected{% endif %}>🇨🇳 China</option>
+                            <option value="IN" {% if current_country == 'IN' %}selected{% endif %}>🇮🇳 India</option>
+                            <option value="BR" {% if current_country == 'BR' %}selected{% endif %}>🇧🇷 Brazil</option>
                         </select>
-                        <small>This affects date/time formats and timezone display in graphs and reports.</small>
                     </div>
-                    <button type="submit" class="btn-submit">Update Country</button>
+                    
+                    <div class="form-group" id="state-province-group" style="display: none;">
+                        <label for="state_province">State/Province/Region:</label>
+                        <select id="state_province" name="state_province">
+                            <option value="">Select...</option>
+                        </select>
+                        <small id="timezone-info" class="text-muted"></small>
+                    </div>
+                    
+                    <small class="text-muted">This affects date/time formats and timezone display in graphs and reports.</small>
+                    <br><br>
+                    <button type="submit" class="btn-submit">Update Location</button>
                 </form>
             </div>
         </div>
@@ -423,53 +433,91 @@
             localStorage.setItem('deepflow_font_preference', fontType);
         }
 
-        function updateCountryPreference(countryCode) {
-            // Update the country preference immediately via AJAX
-            fetch('/settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+        function updateCountrySelection(countryCode) {
+            const stateProvinceGroup = document.getElementById('state-province-group');
+            const stateProvinceSelect = document.getElementById('state_province');
+            const timezoneInfo = document.getElementById('timezone-info');
+            
+            // Define states/provinces for countries with multiple timezones
+            const stateProvinceData = {
+                'US': {
+                    'CA': 'California',
+                    'NY': 'New York',
+                    'TX': 'Texas',
+                    'FL': 'Florida',
+                    'IL': 'Illinois',
+                    'WA': 'Washington',
+                    'CO': 'Colorado',
+                    'AZ': 'Arizona',
+                    'HI': 'Hawaii',
+                    'AK': 'Alaska'
                 },
-                body: `action=update_country&country=${countryCode}`
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Notify parent window to refresh the energy chart if it exists
-                    if (window.opener && !window.opener.closed) {
-                        window.opener.postMessage({
-                            type: 'countryChanged',
-                            country: countryCode
-                        }, '*');
-                    }
-                    
-                    // Store in localStorage for immediate use
-                    localStorage.setItem('deepflow_country_preference', countryCode);
-                    
-                    // Show success message
-                    const existingMessage = document.querySelector('.country-update-message');
-                    if (existingMessage) {
-                        existingMessage.remove();
-                    }
-                    
-                    const message = document.createElement('div');
-                    message.className = 'country-update-message';
-                    message.style.cssText = 'background-color: #d4edda; color: #155724; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #c3e6cb;';
-                    message.textContent = 'Country preference updated! Charts will use the new format.';
-                    
-                    const countrySelect = document.getElementById('country');
-                    countrySelect.parentNode.insertBefore(message, countrySelect.nextSibling);
-                    
-                    // Remove message after 3 seconds
-                    setTimeout(() => {
-                        if (message.parentNode) {
-                            message.remove();
-                        }
-                    }, 3000);
+                'CA': {
+                    'ON': 'Ontario',
+                    'QC': 'Quebec',
+                    'BC': 'British Columbia',
+                    'AB': 'Alberta',
+                    'SK': 'Saskatchewan',
+                    'MB': 'Manitoba',
+                    'NB': 'New Brunswick',
+                    'NS': 'Nova Scotia',
+                    'PE': 'Prince Edward Island',
+                    'NL': 'Newfoundland and Labrador'
+                },
+                'AU': {
+                    'NSW': 'New South Wales',
+                    'VIC': 'Victoria',
+                    'QLD': 'Queensland',
+                    'WA': 'Western Australia',
+                    'SA': 'South Australia',
+                    'TAS': 'Tasmania',
+                    'NT': 'Northern Territory',
+                    'ACT': 'Australian Capital Territory'
+                },
+                'UK': {
+                    'England': 'England',
+                    'Scotland': 'Scotland',
+                    'Wales': 'Wales',
+                    'Northern Ireland': 'Northern Ireland'
+                },
+                'BR': {
+                    'SP': 'São Paulo',
+                    'RJ': 'Rio de Janeiro',
+                    'AC': 'Acre',
+                    'AM': 'Amazonas'
                 }
-            })
-            .catch(error => {
-                console.error('Error updating country preference:', error);
-            });
+            };
+            
+            if (stateProvinceData[countryCode]) {
+                // Show state/province selection
+                stateProvinceGroup.style.display = 'block';
+                
+                // Clear existing options
+                stateProvinceSelect.innerHTML = '<option value="">Select...</option>';
+                
+                // Add state/province options
+                for (const [code, name] of Object.entries(stateProvinceData[countryCode])) {
+                    const option = document.createElement('option');
+                    option.value = code;
+                    option.textContent = name;
+                    if (code === '{{ current_state }}') {
+                        option.selected = true;
+                    }
+                    stateProvinceSelect.appendChild(option);
+                }
+                
+                timezoneInfo.textContent = 'Select your state/province for precise timezone';
+            } else {
+                // Hide state/province selection for countries with single timezone
+                stateProvinceGroup.style.display = 'none';
+                stateProvinceSelect.value = '';
+            }
+        }
+
+        function updateCountryPreference(countryCode) {
+            // This function is kept for backward compatibility
+            // but now we use the form submission instead of AJAX
+            console.log('Country preference will be updated on form submission');
         }
 
         function switchTab(tabName) {
@@ -501,6 +549,12 @@
             if (savedFont) {
                 document.getElementById('font-select').value = savedFont;
                 changeFont(savedFont);
+            }
+            
+            // Initialize state/province dropdown based on current country
+            const currentCountry = '{{ current_country }}';
+            if (currentCountry) {
+                updateCountrySelection(currentCountry);
             }
         });
     </script>

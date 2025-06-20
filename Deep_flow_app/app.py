@@ -1,10 +1,10 @@
-from flask import Flask, request, render_template, redirect, url_for, flash, session
+from flask import Flask, request, render_template, redirect, url_for, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -122,13 +122,21 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                country TEXT DEFAULT 'US'
+                country TEXT DEFAULT 'US',
+                state_province TEXT DEFAULT NULL
             )
         """)
         
         # Add country column if it doesn't exist (for existing databases)
         try:
             cursor.execute("ALTER TABLE users ADD COLUMN country TEXT DEFAULT 'US'")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
+            
+        # Add state_province column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN state_province TEXT DEFAULT NULL")
         except sqlite3.OperationalError:
             # Column already exists
             pass
@@ -1043,11 +1051,141 @@ def get_energy_insights():
         return {"error": "Database error"}, 500
 
 
-# Routes for audio files
-@app.route('/static/audio/<filename>')
-def serve_audio(filename):
-    """Serve audio files from the static/audio directory"""
-    return app.send_static_file(f'audio/{filename}')
+@app.route("/get_weekly_insights")
+def get_weekly_insights():
+    """Get weekly energy insights and feedback."""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        user_id = session['user_id']
+        week_offset = request.args.get('week_offset', 0, type=int)  # 0 = current week, -1 = last week, etc.
+        
+        # Calculate week boundaries
+        today = datetime.now()
+        days_since_monday = today.weekday()
+        monday_this_week = today - timedelta(days=days_since_monday)
+        
+        # Adjust for week offset
+        target_monday = monday_this_week + timedelta(weeks=week_offset)
+        target_sunday = target_monday + timedelta(days=6)
+        
+        # Format dates for SQL query
+        week_start = target_monday.strftime('%Y-%m-%d 00:00:00')
+        week_end = target_sunday.strftime('%Y-%m-%d 23:59:59')
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get energy logs for the week
+        cursor.execute('''
+            SELECT energy_level, timestamp, 
+                   strftime('%w', timestamp) as day_of_week,
+                   strftime('%H', timestamp) as hour_of_day
+            FROM energy_logs 
+            WHERE user_id = ? AND timestamp BETWEEN ? AND ?
+            ORDER BY timestamp
+        ''', (user_id, week_start, week_end))
+        
+        weekly_logs = cursor.fetchall()
+        
+        if not weekly_logs:
+            return jsonify({
+                'success': True,
+                'week_start': target_monday.strftime('%Y-%m-%d'),
+                'week_end': target_sunday.strftime('%Y-%m-%d'),
+                'logs': [],
+                'insights': {
+                    'avg_energy': 0,
+                    'total_sessions': 0,
+                    'best_day': 'No data',
+                    'energy_trend': 'No trend',
+                    'insight_message': 'Start logging your energy levels to see weekly insights!'
+                }
+            })
+        
+        # Calculate insights
+        energy_levels = [log[0] for log in weekly_logs]
+        avg_energy = sum(energy_levels) / len(energy_levels)
+        total_sessions = len(energy_levels)
+        
+        # Find best day of week (0=Sunday, 1=Monday, etc.)
+        day_energies = {}
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        
+        for log in weekly_logs:
+            day_num = int(log[2])
+            if day_num not in day_energies:
+                day_energies[day_num] = []
+            day_energies[day_num].append(log[0])
+        
+        # Calculate average energy per day
+        day_averages = {}
+        for day_num, energies in day_energies.items():
+            day_averages[day_num] = sum(energies) / len(energies)
+        
+        best_day_num = max(day_averages.keys(), key=lambda x: day_averages[x]) if day_averages else 0
+        best_day = day_names[best_day_num]
+        
+        # Calculate energy trend
+        if len(energy_levels) >= 3:
+            first_half = energy_levels[:len(energy_levels)//2]
+            second_half = energy_levels[len(energy_levels)//2:]
+            first_avg = sum(first_half) / len(first_half)
+            second_avg = sum(second_half) / len(second_half)
+            
+            if second_avg > first_avg + 0.5:
+                trend = "📈 Improving"
+            elif second_avg < first_avg - 0.5:
+                trend = "📉 Declining"
+            else:
+                trend = "➡️ Stable"
+        else:
+            trend = "📊 Building data"
+        
+        # Generate insight message
+        if avg_energy >= 7.5:
+            insight_message = f"Outstanding week! Your average energy level of {avg_energy:.1f} shows you're maintaining excellent focus throughout your sessions."
+        elif avg_energy >= 6.0:
+            insight_message = f"Great week! With an average energy of {avg_energy:.1f}, you're consistently maintaining good focus levels."
+        elif avg_energy >= 4.0:
+            insight_message = f"Your average energy this week was {avg_energy:.1f}. Consider adjusting your schedule or taking breaks to boost your focus levels."
+        else:
+            insight_message = f"This week's average energy was {avg_energy:.1f}. You might benefit from shorter focus sessions or addressing factors affecting your energy."
+        
+        # Add day-specific insight
+        if best_day:
+            insight_message += f" Your most energetic day was {best_day} - consider scheduling important tasks on similar days."
+        
+        insights = {
+            'avg_energy': round(avg_energy, 1),
+            'total_sessions': total_sessions,
+            'best_day': best_day,
+            'energy_trend': trend,
+            'insight_message': insight_message
+        }
+        
+        # Format logs for frontend
+        formatted_logs = []
+        for log in weekly_logs:
+            formatted_logs.append({
+                'energy_level': log[0],
+                'timestamp': log[1]
+            })
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'week_start': target_monday.strftime('%Y-%m-%d'),
+            'week_end': target_sunday.strftime('%Y-%m-%d'),
+            'logs': formatted_logs,
+            'insights': insights
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting weekly insights: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -1059,17 +1197,19 @@ def settings():
 
     username = session.get('username', '')
     
-    # Get current user's country
+    # Get current user's country and state
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT country FROM users WHERE id = ?", (session['user_id'],))
+        cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (session['user_id'],))
         result = cursor.fetchone()
         current_country = result[0] if result else 'US'
+        current_state = result[1] if result and result[1] else ''
         conn.close()
     except sqlite3.Error as e:
-        logger.error("Error fetching user country: %s", str(e))
+        logger.error("Error fetching user location: %s", str(e))
         current_country = 'US'
+        current_state = ''
     
     if request.method == "POST":
         action = request.form.get("action")
@@ -1144,6 +1284,7 @@ def settings():
                             
         elif action == "update_country":
             new_country = request.form.get("country", "").strip()
+            new_state = request.form.get("state_province", "").strip()
             
             # Validate country code
             valid_countries = ['US', 'UK', 'AU', 'CA', 'DE', 'FR', 'ES', 'IT', 'JP', 'CN', 'IN', 'BR']
@@ -1151,20 +1292,22 @@ def settings():
                 try:
                     conn = sqlite3.connect(DB_PATH)
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE users SET country = ? WHERE id = ?", 
-                                (new_country, session['user_id']))
+                    cursor.execute("UPDATE users SET country = ?, state_province = ? WHERE id = ?", 
+                                (new_country, new_state if new_state else None, session['user_id']))
                     conn.commit()
                     conn.close()
                     current_country = new_country
-                    flash("Country updated successfully!", "success")
+                    current_state = new_state
+                    flash("Location updated successfully!", "success")
                 except sqlite3.Error as e:
-                    logger.error("Error updating country: %s", str(e))
-                    flash("Failed to update country.", "error")
+                    logger.error("Error updating location: %s", str(e))
+                    flash("Failed to update location.", "error")
             else:
                 flash("Invalid country selection.", "error")
     
     last_updated = datetime.now().strftime("%B %d, %Y")
-    return render_template("settings.html", username=username, last_updated=last_updated, current_country=current_country)
+    return render_template("settings.html", username=username, last_updated=last_updated, 
+                         current_country=current_country, current_state=current_state)
 
 
 @app.route("/export_user_data")
@@ -1312,39 +1455,108 @@ def update_country_preference():
 
 @app.route("/get_user_preferences", methods=["GET"])
 def get_user_preferences():
-    """Get user preferences including country and timezone for chart formatting"""
+    """Get user preferences including country, state/province and timezone for chart formatting"""
     if 'user_id' not in session:
         return {"error": "Not authenticated"}, 401
     
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT country FROM users WHERE id = ?", (session['user_id'],))
+        cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (session['user_id'],))
         result = cursor.fetchone()
         country = result[0] if result else 'US'
+        state_province = result[1] if result and result[1] else ''
         conn.close()
         
-        # Define timezone mappings for each country
-        timezone_mappings = {
-            'US': {'timezone': 'America/New_York', 'offset': -5},  # EST (can vary)
-            'UK': {'timezone': 'Europe/London', 'offset': 0},      # GMT/BST
-            'AU': {'timezone': 'Australia/Sydney', 'offset': 10},  # AEST
-            'CA': {'timezone': 'America/Toronto', 'offset': -5},   # EST
-            'DE': {'timezone': 'Europe/Berlin', 'offset': 1},      # CET
-            'FR': {'timezone': 'Europe/Paris', 'offset': 1},       # CET
-            'ES': {'timezone': 'Europe/Madrid', 'offset': 1},      # CET
-            'IT': {'timezone': 'Europe/Rome', 'offset': 1},        # CET
-            'JP': {'timezone': 'Asia/Tokyo', 'offset': 9},         # JST
-            'CN': {'timezone': 'Asia/Shanghai', 'offset': 8},      # CST
-            'IN': {'timezone': 'Asia/Kolkata', 'offset': 5.5},     # IST
-            'BR': {'timezone': 'America/Sao_Paulo', 'offset': -3}  # BRT
-        }
+        # Define precise timezone mappings for countries and states/provinces
+        def get_timezone_info(country, state_province=''):
+            timezone_mappings = {
+                'US': {
+                    'default': {'timezone': 'America/New_York', 'offset': -5},
+                    'states': {
+                        'CA': {'timezone': 'America/Los_Angeles', 'offset': -8},  # Pacific
+                        'NY': {'timezone': 'America/New_York', 'offset': -5},     # Eastern
+                        'TX': {'timezone': 'America/Chicago', 'offset': -6},      # Central
+                        'FL': {'timezone': 'America/New_York', 'offset': -5},     # Eastern
+                        'IL': {'timezone': 'America/Chicago', 'offset': -6},      # Central
+                        'WA': {'timezone': 'America/Los_Angeles', 'offset': -8},  # Pacific
+                        'CO': {'timezone': 'America/Denver', 'offset': -7},       # Mountain
+                        'AZ': {'timezone': 'America/Phoenix', 'offset': -7},      # Mountain (no DST)
+                        'HI': {'timezone': 'Pacific/Honolulu', 'offset': -10},    # Hawaii
+                        'AK': {'timezone': 'America/Anchorage', 'offset': -9},    # Alaska
+                    }
+                },
+                'CA': {
+                    'default': {'timezone': 'America/Toronto', 'offset': -5},
+                    'provinces': {
+                        'ON': {'timezone': 'America/Toronto', 'offset': -5},      # Eastern
+                        'QC': {'timezone': 'America/Toronto', 'offset': -5},      # Eastern
+                        'BC': {'timezone': 'America/Vancouver', 'offset': -8},    # Pacific
+                        'AB': {'timezone': 'America/Edmonton', 'offset': -7},     # Mountain
+                        'SK': {'timezone': 'America/Regina', 'offset': -6},       # Central
+                        'MB': {'timezone': 'America/Winnipeg', 'offset': -6},     # Central
+                        'NB': {'timezone': 'America/Moncton', 'offset': -4},      # Atlantic
+                        'NS': {'timezone': 'America/Halifax', 'offset': -4},      # Atlantic
+                        'PE': {'timezone': 'America/Halifax', 'offset': -4},      # Atlantic
+                        'NL': {'timezone': 'America/St_Johns', 'offset': -3.5},   # Newfoundland
+                    }
+                },
+                'AU': {
+                    'default': {'timezone': 'Australia/Sydney', 'offset': 10},
+                    'states': {
+                        'NSW': {'timezone': 'Australia/Sydney', 'offset': 10},    # AEST
+                        'VIC': {'timezone': 'Australia/Melbourne', 'offset': 10}, # AEST
+                        'QLD': {'timezone': 'Australia/Brisbane', 'offset': 10},  # AEST (no DST)
+                        'WA': {'timezone': 'Australia/Perth', 'offset': 8},       # AWST
+                        'SA': {'timezone': 'Australia/Adelaide', 'offset': 9.5},  # ACST
+                        'TAS': {'timezone': 'Australia/Hobart', 'offset': 10},    # AEST
+                        'NT': {'timezone': 'Australia/Darwin', 'offset': 9.5},    # ACST (no DST)
+                        'ACT': {'timezone': 'Australia/Sydney', 'offset': 10},    # AEST
+                    }
+                },
+                'UK': {
+                    'default': {'timezone': 'Europe/London', 'offset': 0},
+                    'regions': {
+                        'England': {'timezone': 'Europe/London', 'offset': 0},
+                        'Scotland': {'timezone': 'Europe/London', 'offset': 0},
+                        'Wales': {'timezone': 'Europe/London', 'offset': 0},
+                        'Northern Ireland': {'timezone': 'Europe/London', 'offset': 0},
+                    }
+                },
+                'DE': {'default': {'timezone': 'Europe/Berlin', 'offset': 1}},
+                'FR': {'default': {'timezone': 'Europe/Paris', 'offset': 1}},
+                'ES': {'default': {'timezone': 'Europe/Madrid', 'offset': 1}},
+                'IT': {'default': {'timezone': 'Europe/Rome', 'offset': 1}},
+                'JP': {'default': {'timezone': 'Asia/Tokyo', 'offset': 9}},
+                'CN': {'default': {'timezone': 'Asia/Shanghai', 'offset': 8}},
+                'IN': {'default': {'timezone': 'Asia/Kolkata', 'offset': 5.5}},
+                'BR': {
+                    'default': {'timezone': 'America/Sao_Paulo', 'offset': -3},
+                    'states': {
+                        'SP': {'timezone': 'America/Sao_Paulo', 'offset': -3},    # BRT
+                        'RJ': {'timezone': 'America/Sao_Paulo', 'offset': -3},    # BRT
+                        'AC': {'timezone': 'America/Rio_Branco', 'offset': -5},   # ACT
+                        'AM': {'timezone': 'America/Manaus', 'offset': -4},       # AMT
+                    }
+                }
+            }
+            
+            country_data = timezone_mappings.get(country, timezone_mappings['US'])
+            
+            # Check for state/province specific timezone
+            if state_province and isinstance(country_data, dict):
+                for region_key in ['states', 'provinces', 'regions']:
+                    if region_key in country_data and state_province in country_data[region_key]:
+                        return country_data[region_key][state_province]
+            
+            return country_data.get('default', timezone_mappings['US']['default'])
         
-        timezone_info = timezone_mappings.get(country, timezone_mappings['US'])
+        timezone_info = get_timezone_info(country, state_province)
         
         return {
             "success": True, 
             "country": country,
+            "state_province": state_province,
             "timezone": timezone_info['timezone'],
             "timezone_offset": timezone_info['offset']
         }, 200

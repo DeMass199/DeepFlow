@@ -5,9 +5,14 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('Energy chart script loaded, fetching data...');
 
     let currentChart = null; // Store reference to current chart instance
+    let currentWeekOffset = 0; // 0 = current week, -1 = last week, etc.
+    let currentDataRange = 'week'; // 'week', 'month', 'all'
 
     // Make refresh function globally available
     window.refreshEnergyChart = loadAndRenderChart;
+
+    // Set up event listeners for navigation
+    setupNavigationListeners();
 
     // Listen for country preference changes from settings page
     window.addEventListener('message', function(event) {
@@ -29,14 +34,99 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial chart load
     loadAndRenderChart();
 
+    function setupNavigationListeners() {
+        // Week navigation
+        const prevWeekBtn = document.getElementById('prev-week-btn');
+        const nextWeekBtn = document.getElementById('next-week-btn');
+        
+        if (prevWeekBtn) {
+            prevWeekBtn.addEventListener('click', () => {
+                currentWeekOffset--;
+                updateWeekNavigation();
+                loadAndRenderChart();
+            });
+        }
+        
+        if (nextWeekBtn) {
+            nextWeekBtn.addEventListener('click', () => {
+                currentWeekOffset++;
+                updateWeekNavigation();
+                loadAndRenderChart();
+            });
+        }
+
+        // Data range selection
+        const rangeButtons = document.querySelectorAll('.range-btn');
+        rangeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons
+                rangeButtons.forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                btn.classList.add('active');
+                
+                currentDataRange = btn.dataset.range;
+                currentWeekOffset = 0; // Reset to current period
+                updateWeekNavigation();
+                loadAndRenderChart();
+            });
+        });
+    }
+
+    function updateWeekNavigation() {
+        const nextWeekBtn = document.getElementById('next-week-btn');
+        const currentWeekDisplay = document.getElementById('current-week-display');
+        
+        // Disable next week button if at current week
+        if (nextWeekBtn) {
+            nextWeekBtn.disabled = (currentWeekOffset >= 0);
+        }
+        
+        // Update week display
+        if (currentWeekDisplay) {
+            if (currentDataRange === 'week') {
+                if (currentWeekOffset === 0) {
+                    currentWeekDisplay.textContent = 'This Week';
+                } else if (currentWeekOffset === -1) {
+                    currentWeekDisplay.textContent = 'Last Week';
+                } else {
+                    currentWeekDisplay.textContent = `${Math.abs(currentWeekOffset)} Weeks Ago`;
+                }
+            } else if (currentDataRange === 'month') {
+                currentWeekDisplay.textContent = 'This Month';
+            } else {
+                currentWeekDisplay.textContent = 'All Time';
+            }
+        }
+    }
+
     function loadAndRenderChart() {
-        // Fetch user preferences first
-        Promise.all([
-            fetch('/get_energy_logs').then(response => response.json()),
-            fetch('/get_user_preferences').then(response => response.json())
-        ])
-        .then(([energyData, preferencesData]) => {
-            console.log('Energy logs response:', energyData);
+        let dataPromise;
+        
+        if (currentDataRange === 'week') {
+            // Fetch weekly data with insights
+            dataPromise = Promise.all([
+                fetch(`/get_weekly_insights?week_offset=${currentWeekOffset}`).then(response => response.json()),
+                fetch('/get_user_preferences').then(response => response.json())
+            ]).then(([weeklyData, preferencesData]) => {
+                // Show weekly feedback if available
+                showWeeklyFeedback(weeklyData.insights);
+                return { energyData: weeklyData, preferencesData };
+            });
+        } else {
+            // Fetch all data (existing behavior)
+            dataPromise = Promise.all([
+                fetch('/get_energy_logs').then(response => response.json()),
+                fetch('/get_user_preferences').then(response => response.json())
+            ]).then(([energyData, preferencesData]) => {
+                // Hide weekly feedback for non-weekly views
+                hideWeeklyFeedback();
+                return { energyData, preferencesData };
+            });
+        }
+        
+        dataPromise
+        .then(({ energyData, preferencesData }) => {
+            console.log('Energy data response:', energyData);
             console.log('User preferences:', preferencesData);
             
             const userCountry = preferencesData.success ? preferencesData.country : 
@@ -56,9 +146,32 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             } else {
                 console.log('No energy logs to display or data.success is false.');
+                hideWeeklyFeedback();
             }
         })
         .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function showWeeklyFeedback(insights) {
+        const feedbackContainer = document.getElementById('weekly-feedback');
+        if (!feedbackContainer || !insights) return;
+        
+        // Update feedback stats
+        document.getElementById('avg-energy').textContent = insights.avg_energy || '--';
+        document.getElementById('total-sessions').textContent = insights.total_sessions || '--';
+        document.getElementById('best-day').textContent = insights.best_day || '--';
+        document.getElementById('energy-trend').textContent = insights.energy_trend || '--';
+        document.getElementById('weekly-insight').textContent = insights.insight_message || '';
+        
+        // Show feedback container
+        feedbackContainer.classList.remove('hidden');
+    }
+
+    function hideWeeklyFeedback() {
+        const feedbackContainer = document.getElementById('weekly-feedback');
+        if (feedbackContainer) {
+            feedbackContainer.classList.add('hidden');
+        }
     }
 
     function getLocaleSettings(country) {
@@ -232,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 scales: {
                     y: {
-                        beginAtZero: true,
+                        min: 1,
                         max: 10,
                         title: {
                             display: true,
@@ -242,6 +355,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             }
                         },
                         ticks: {
+                            stepSize: 1,
                             font: {
                                 family: localeSettings.font
                             }
