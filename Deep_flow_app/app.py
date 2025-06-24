@@ -141,6 +141,13 @@ def init_db():
             # Column already exists
             pass
         
+        # Add elapsed_time column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE timers ADD COLUMN elapsed_time INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
+        
         # Create the timers table in Deepflow.db
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS timers (
@@ -151,6 +158,7 @@ def init_db():
                 start_time TEXT DEFAULT NULL,
                 end_time TEXT DEFAULT NULL,
                 paused_at TEXT DEFAULT NULL,
+                elapsed_time INTEGER DEFAULT 0, -- Time elapsed before pause (in milliseconds)
                 is_running INTEGER NOT NULL DEFAULT 0, -- 0: stopped, 1: running, 2: paused
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
@@ -482,34 +490,83 @@ def update_timer(timer_id):
         if action == "start":
             cursor.execute("""
                 UPDATE timers
-                SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL
+                SET is_running = 1, start_time = datetime('now', 'localtime'), 
+                    end_time = NULL, paused_at = NULL, elapsed_time = 0
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
             logger.debug("Started timer %d", timer_id)
         elif action == "pause":
-            # For pause, we store a special state by adding a pause_timestamp
-            # We'll keep is_running = 1 but add a 'paused_at' timestamp
+            # Calculate elapsed time since start and store it in milliseconds
             cursor.execute("""
-                UPDATE timers
-                SET is_running = 2, paused_at = datetime('now', 'localtime')
+                SELECT start_time, elapsed_time FROM timers
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
-            logger.debug("Paused timer %d", timer_id)
+            timer_data = cursor.fetchone()
+            
+            if timer_data and timer_data[0]:  # start_time exists
+                start_time_str = timer_data[0]
+                current_elapsed = timer_data[1] or 0
+                
+                # Parse the start time and calculate elapsed milliseconds
+                start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+                current_time = datetime.now()
+                session_elapsed = int((current_time - start_time).total_seconds() * 1000)  # Convert to milliseconds
+                total_elapsed = current_elapsed + session_elapsed
+                
+                cursor.execute("""
+                    UPDATE timers
+                    SET is_running = 2, paused_at = datetime('now', 'localtime'),
+                        elapsed_time = ?
+                    WHERE id = ? AND user_id = ?
+                """, (total_elapsed, timer_id, session['user_id']))
+                logger.debug("Paused timer %d with total elapsed time: %d milliseconds", timer_id, total_elapsed)
+            else:
+                # If no start_time, just set to paused
+                cursor.execute("""
+                    UPDATE timers
+                    SET is_running = 2, paused_at = datetime('now', 'localtime')
+                    WHERE id = ? AND user_id = ?
+                """, (timer_id, session['user_id']))
+                logger.debug("Paused timer %d (no start time)", timer_id)
         elif action == "resume":
-            # Resume is similar to start, but we keep the original start_time
+            # When resuming, set new start_time and keep elapsed_time
             cursor.execute("""
                 UPDATE timers
-                SET is_running = 1, paused_at = NULL
+                SET is_running = 1, start_time = datetime('now', 'localtime'), paused_at = NULL
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
             logger.debug("Resumed timer %d", timer_id)
         elif action == "stop":
+            # Calculate final elapsed time when stopping in milliseconds
             cursor.execute("""
-                UPDATE timers
-                SET is_running = 0, end_time = datetime('now', 'localtime')
+                SELECT start_time, elapsed_time, is_running FROM timers
                 WHERE id = ? AND user_id = ?
             """, (timer_id, session['user_id']))
-            logger.debug("Stopped timer %d", timer_id)
+            timer_data = cursor.fetchone()
+            
+            total_elapsed = 0
+            if timer_data:
+                current_elapsed = timer_data[1] or 0
+                is_currently_running = timer_data[2]
+                
+                # If timer is currently running (not paused), add current session time
+                if is_currently_running == 1 and timer_data[0]:  # Running and has start_time
+                    start_time_str = timer_data[0]
+                    start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+                    current_time = datetime.now()
+                    session_elapsed = int((current_time - start_time).total_seconds() * 1000)  # Convert to milliseconds
+                    total_elapsed = current_elapsed + session_elapsed
+                else:
+                    # Timer was paused, use stored elapsed time (already in milliseconds)
+                    total_elapsed = current_elapsed
+            
+            cursor.execute("""
+                UPDATE timers
+                SET is_running = 0, end_time = datetime('now', 'localtime'),
+                    elapsed_time = ?, start_time = NULL, paused_at = NULL
+                WHERE id = ? AND user_id = ?
+            """, (total_elapsed, timer_id, session['user_id']))
+            logger.debug("Stopped timer %d with final elapsed time: %d milliseconds", timer_id, total_elapsed)
         
         conn.commit()
         
@@ -767,17 +824,18 @@ def log_energy():
             if stage == 'start':
                 cursor.execute("""
                     UPDATE timers
-                    SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL, paused_at = NULL
+                    SET is_running = 1, start_time = datetime('now', 'localtime'), 
+                        end_time = NULL, paused_at = NULL, elapsed_time = 0
                     WHERE id = ? AND user_id = ?
                 """, (timer_id, session['user_id']))
-                logger.debug(f"Timer {timer_id} started automatically after energy log.")
+                logger.debug("Timer %d started automatically after energy log.", timer_id)
             elif stage == 'end':
                 cursor.execute("""
                     UPDATE timers
                     SET is_running = 0, end_time = datetime('now', 'localtime')
                     WHERE id = ? AND user_id = ?
                 """, (timer_id, session['user_id']))
-                logger.debug(f"Timer {timer_id} stopped automatically after energy log.")
+                logger.debug("Timer %d stopped automatically after energy log.", timer_id)
             
             conn.commit()
             conn.close()
@@ -863,14 +921,13 @@ def start_timer_route(timer_id):
     if 'user_id' not in session:
         return {"error": "Not authenticated"}, 401
     
-    # You can reuse the logic from update_timer or call a helper function
-    # For simplicity, we'll just update the state here
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE timers
-            SET is_running = 1, start_time = datetime('now', 'localtime'), end_time = NULL, paused_at = NULL
+            SET is_running = 1, start_time = datetime('now', 'localtime'), 
+                end_time = NULL, paused_at = NULL, elapsed_time = 0
             WHERE id = ? AND user_id = ?
         """, (timer_id, session['user_id']))
         conn.commit()
@@ -888,11 +945,37 @@ def pause_timer_route(timer_id):
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+        
+        # Get current timer state
         cursor.execute("""
-            UPDATE timers
-            SET is_running = 2, paused_at = datetime('now', 'localtime')
+            SELECT start_time, elapsed_time FROM timers
             WHERE id = ? AND user_id = ?
         """, (timer_id, session['user_id']))
+        timer_data = cursor.fetchone()
+        
+        if timer_data and timer_data[0]:  # start_time exists
+            start_time_str = timer_data[0]
+            current_elapsed = timer_data[1] or 0
+            
+            # Calculate elapsed time in milliseconds
+            start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+            current_time = datetime.now()
+            session_elapsed = int((current_time - start_time).total_seconds() * 1000)  # Convert to milliseconds
+            total_elapsed = current_elapsed + session_elapsed
+            
+            cursor.execute("""
+                UPDATE timers
+                SET is_running = 2, paused_at = datetime('now', 'localtime'),
+                    elapsed_time = ?
+                WHERE id = ? AND user_id = ?
+            """, (total_elapsed, timer_id, session['user_id']))
+        else:
+            cursor.execute("""
+                UPDATE timers
+                SET is_running = 2, paused_at = datetime('now', 'localtime')
+                WHERE id = ? AND user_id = ?
+            """, (timer_id, session['user_id']))
+        
         conn.commit()
         conn.close()
         return {"success": True, "message": "Timer paused successfully"}
@@ -910,7 +993,7 @@ def resume_timer_route(timer_id):
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE timers
-            SET is_running = 1, paused_at = NULL
+            SET is_running = 1, start_time = datetime('now', 'localtime'), paused_at = NULL
             WHERE id = ? AND user_id = ?
         """, (timer_id, session['user_id']))
         conn.commit()
@@ -928,11 +1011,35 @@ def stop_timer_route(timer_id):
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+        
+        # Calculate final elapsed time
         cursor.execute("""
-            UPDATE timers
-            SET is_running = 0, end_time = datetime('now', 'localtime')
+            SELECT start_time, elapsed_time, is_running FROM timers
             WHERE id = ? AND user_id = ?
         """, (timer_id, session['user_id']))
+        timer_data = cursor.fetchone()
+        
+        total_elapsed = 0
+        if timer_data:
+            current_elapsed = timer_data[1] or 0
+            is_currently_running = timer_data[2]
+            
+            # If timer is currently running, add current session time
+            if is_currently_running == 1 and timer_data[0]:
+                start_time_str = timer_data[0]
+                start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+                current_time = datetime.now()
+                session_elapsed = int((current_time - start_time).total_seconds() * 1000)  # Convert to milliseconds
+                total_elapsed = current_elapsed + session_elapsed
+            else:
+                total_elapsed = current_elapsed
+        
+        cursor.execute("""
+            UPDATE timers
+            SET is_running = 0, end_time = datetime('now', 'localtime'),
+                elapsed_time = ?, start_time = NULL, paused_at = NULL
+            WHERE id = ? AND user_id = ?
+        """, (total_elapsed, timer_id, session['user_id']))
         conn.commit()
         conn.close()
         return {"success": True, "message": "Timer stopped successfully"}
@@ -1562,6 +1669,55 @@ def get_user_preferences():
         }, 200
     except sqlite3.Error as e:
         logger.error("Error getting user preferences: %s", str(e))
+        return {"error": "Database error"}, 500
+
+
+@app.route("/get_timer_state/<int:timer_id>", methods=["GET"])
+def get_timer_state(timer_id):
+    """Get current state and elapsed time for a timer"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT start_time, elapsed_time, is_running, duration FROM timers
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        
+        timer_data = cursor.fetchone()
+        conn.close()
+        
+        if not timer_data:
+            return {"error": "Timer not found"}, 404
+        
+        start_time_str, stored_elapsed, is_running, duration = timer_data
+        current_elapsed_ms = stored_elapsed or 0
+        
+        # If timer is currently running, calculate total elapsed time
+        if is_running == 1 and start_time_str:
+            start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+            current_time = datetime.now()
+            session_elapsed_ms = int((current_time - start_time).total_seconds() * 1000)
+            current_elapsed_ms += session_elapsed_ms
+        
+        # Calculate remaining time in milliseconds
+        duration_ms = duration * 1000  # Convert duration from seconds to milliseconds
+        remaining_ms = max(0, duration_ms - current_elapsed_ms)
+        
+        return {
+            "success": True,
+            "timer_id": timer_id,
+            "is_running": is_running,
+            "duration_ms": duration_ms,
+            "elapsed_ms": current_elapsed_ms,
+            "remaining_ms": remaining_ms,
+            "start_time": start_time_str
+        }
+        
+    except sqlite3.Error as e:
+        logger.error(f"Error getting timer state: {e}")
         return {"error": "Database error"}, 500
 
 

@@ -12,52 +12,146 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize all timer countdowns on page load
     initializeCountdowns();
     
+    // Make functions available globally
+    window.startCountdownFromRemaining = startCountdownFromRemaining;
+    window.displayRemainingTime = displayRemainingTime;
+    window.initializeTimer = initializeTimer;
+    
     /**
      * Initialize all countdown timers on the page
      */
     function initializeCountdowns() {
         document.querySelectorAll('.timer-countdown').forEach(function(countdownEl) {
             const timerId = countdownEl.id.replace('countdown-', '');
-            const timerItem = countdownEl.closest('.timer-item');
-            
-            if (!timerItem) return;
-            
-            const isRunning = timerItem.getAttribute('data-running');
-            const duration = parseInt(countdownEl.getAttribute('data-duration') || '0', 10);
-            const startTime = countdownEl.getAttribute('data-started');
-            const pausedAt = countdownEl.getAttribute('data-paused');
-            
-            if (isRunning === '1' && startTime && duration) {
-                // Timer is running - calculate remaining time and start countdown
-                startCountdown(timerId, duration, startTime);
-            } else if (isRunning === '2' && pausedAt) {
-                // Timer is paused - show paused state with the remaining time
-                const timeDisplay = countdownEl.querySelector('.time-display');
-                if (timeDisplay) {
-                    // Calculate the elapsed time until the pause
-                    const startDate = new Date(startTime.replace(' ', 'T'));
-                    const pauseDate = new Date(pausedAt.replace(' ', 'T'));
-                    const elapsedSeconds = Math.floor((pauseDate - startDate) / 1000);
-                    const remainingSeconds = Math.max(0, duration - elapsedSeconds);
-                    
-                    // Format the remaining time
-                    const hours = Math.floor(remainingSeconds / 3600);
-                    const minutes = Math.floor((remainingSeconds % 3600) / 60);
-                    const seconds = Math.floor(remainingSeconds % 60);
-                    
-                    // Just show the time clearly
-                    let timeString = '';
-                    if (hours > 0) {
-                        timeString += `${hours}:`;
-                    }
-                    timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                    
-                    timeDisplay.textContent = timeString;
-                }
-            }
+            initializeTimer(timerId);
         });
     }
     
+    /**
+     * Initialize a specific timer by getting its state from the backend
+     */
+    function initializeTimer(timerId) {
+        // Get timer state from backend for accurate elapsed time and remaining time
+        fetch(`/get_timer_state/${timerId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const countdownEl = document.querySelector(`#countdown-${timerId} .time-display`);
+                    if (!countdownEl) return;
+                    
+                    if (data.is_running === 1) {
+                        // Timer is running - start countdown with remaining time
+                        startCountdownFromRemaining(timerId, data.remaining_ms);
+                    } else {
+                        // Timer is paused or stopped - show remaining time
+                        displayRemainingTime(countdownEl, data.remaining_ms);
+                    }
+                } else {
+                    console.error(`Failed to get timer state for timer ${timerId}:`, data.error);
+                }
+            })
+            .catch(error => {
+                console.error(`Error getting timer state for timer ${timerId}:`, error);
+                // Fallback to old logic if backend fails
+                initializeTimerFallback(timerId);
+            });
+    }
+    
+    /**
+     * Fallback initialization using old DOM-based logic
+     */
+    function initializeTimerFallback(timerId) {
+        const countdownEl = document.querySelector(`#countdown-${timerId}`);
+        if (!countdownEl) return;
+        
+        const timerItem = countdownEl.closest('.timer-item');
+        if (!timerItem) return;
+        
+        const isRunning = timerItem.getAttribute('data-running');
+        const duration = parseInt(countdownEl.getAttribute('data-duration') || '0', 10);
+        const startTime = countdownEl.getAttribute('data-started');
+        const pausedAt = countdownEl.getAttribute('data-paused');
+        
+        if (isRunning === '1' && startTime && duration) {
+            // Timer is running - calculate remaining time and start countdown
+            startCountdown(timerId, duration, startTime);
+        } else if (isRunning === '2' && pausedAt) {
+            // Timer is paused - show paused state with the remaining time
+            const timeDisplay = countdownEl.querySelector('.time-display');
+            if (timeDisplay) {
+                // Calculate the elapsed time until the pause
+                const startDate = new Date(startTime.replace(' ', 'T'));
+                const pauseDate = new Date(pausedAt.replace(' ', 'T'));
+                const elapsedSeconds = Math.floor((pauseDate - startDate) / 1000);
+                const remainingSeconds = Math.max(0, duration - elapsedSeconds);
+                
+                displayRemainingTime(timeDisplay, remainingSeconds * 1000);
+            }
+        }
+    }
+    
+    /**
+     * Start countdown for a specific timer using remaining milliseconds
+     * @param {string} timerId - ID of the timer
+     * @param {number} remainingMs - Remaining time in milliseconds
+     */
+    function startCountdownFromRemaining(timerId, remainingMs) {
+        // Clear any existing countdown for this timer
+        if (window.timerCountdowns[timerId]) {
+            clearInterval(window.timerCountdowns[timerId]);
+        }
+        
+        const countdownEl = document.querySelector(`#countdown-${timerId} .time-display`);
+        if (!countdownEl) return;
+        
+        // Calculate end time based on current time and remaining milliseconds
+        const endTime = new Date(Date.now() + remainingMs);
+        
+        // Update immediately
+        updateCountdownDisplay(countdownEl, endTime, timerId);
+        
+        // Set interval to update countdown
+        window.timerCountdowns[timerId] = setInterval(function() {
+            const isComplete = updateCountdownDisplay(countdownEl, endTime, timerId);
+            
+            // If countdown is complete, clear interval and show energy check-in
+            if (isComplete) {
+                clearInterval(window.timerCountdowns[timerId]);
+                delete window.timerCountdowns[timerId];
+                
+                // Show the energy check-in modal instead of reloading
+                console.log(`Timer ${timerId} finished. Showing energy check-in modal.`);
+                if (window.showEnergyCheckinModal) {
+                    window.showEnergyCheckinModal(timerId, 'end');
+                } else {
+                    console.error('showEnergyCheckinModal function not found. Reloading as a fallback.');
+                    window.location.reload();
+                }
+            }
+        }, 1000);
+    }
+    
+    /**
+     * Display remaining time without starting a countdown
+     * @param {Element} timeDisplay - The time display element
+     * @param {number} remainingMs - Remaining time in milliseconds
+     */
+    function displayRemainingTime(timeDisplay, remainingMs) {
+        const remainingSeconds = Math.floor(remainingMs / 1000);
+        const hours = Math.floor(remainingSeconds / 3600);
+        const minutes = Math.floor((remainingSeconds % 3600) / 60);
+        const seconds = remainingSeconds % 60;
+        
+        // Format the time display
+        let timeString = '';
+        if (hours > 0) {
+            timeString += `${hours}:`;
+        }
+        timeString += `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        timeDisplay.textContent = timeString;
+    }
+
     /**
      * Start countdown for a specific timer
      * @param {string} timerId - ID of the timer
