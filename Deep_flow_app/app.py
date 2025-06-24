@@ -934,7 +934,7 @@ def start_timer_route(timer_id):
         conn.close()
         return {"success": True, "message": "Timer started successfully"}
     except sqlite3.Error as e:
-        logger.error(f"Error starting timer: {e}")
+        logger.error("Error starting timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
 @app.route("/pause_timer/<int:timer_id>", methods=["POST"])
@@ -980,7 +980,7 @@ def pause_timer_route(timer_id):
         conn.close()
         return {"success": True, "message": "Timer paused successfully"}
     except sqlite3.Error as e:
-        logger.error(f"Error pausing timer: {e}")
+        logger.error("Error pausing timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
 @app.route("/resume_timer/<int:timer_id>", methods=["POST"])
@@ -1000,7 +1000,7 @@ def resume_timer_route(timer_id):
         conn.close()
         return {"success": True, "message": "Timer resumed successfully"}
     except sqlite3.Error as e:
-        logger.error(f"Error resuming timer: {e}")
+        logger.error("Error resuming timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
 @app.route("/stop_timer/<int:timer_id>", methods=["POST"])
@@ -1044,7 +1044,7 @@ def stop_timer_route(timer_id):
         conn.close()
         return {"success": True, "message": "Timer stopped successfully"}
     except sqlite3.Error as e:
-        logger.error(f"Error stopping timer: {e}")
+        logger.error("Error stopping timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
 
@@ -1290,8 +1290,8 @@ def get_weekly_insights():
             'insights': insights
         })
         
-    except Exception as e:
-        logger.error(f"Error getting weekly insights: {str(e)}")
+    except (sqlite3.Error, ValueError) as e:
+        logger.error("Error getting weekly insights: %s", str(e))
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1717,8 +1717,46 @@ def get_timer_state(timer_id):
         }
         
     except sqlite3.Error as e:
-        logger.error(f"Error getting timer state: {e}")
+        logger.error("Error getting timer state: %s", e)
         return {"error": "Database error"}, 500
+
+
+@app.route("/reset_energy_data", methods=["POST"])
+def reset_energy_data():
+    """Reset all energy-related data (logs and insights) for the current user"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        user_id = session['user_id']
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Delete all energy logs for the user
+        cursor.execute("DELETE FROM energy_logs WHERE user_id = ?", (user_id,))
+        deleted_logs = cursor.rowcount
+        
+        # Delete all energy insights for the user
+        cursor.execute("DELETE FROM energy_insights WHERE user_id = ?", (user_id,))
+        deleted_insights = cursor.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info("Reset energy data for user %d: %d logs, %d insights deleted", 
+                   user_id, deleted_logs, deleted_insights)
+        
+        return {
+            "success": True,
+            "message": f"Successfully reset all energy data. Deleted {deleted_logs} energy logs and {deleted_insights} energy insights.",
+            "deleted_logs": deleted_logs,
+            "deleted_insights": deleted_insights
+        }, 200
+        
+    except sqlite3.Error as e:
+        logger.error("Error resetting energy data for user %d: %s", session['user_id'], str(e))
+        return {"error": "Database error occurred while resetting data"}, 500
 
 
 if __name__ == "__main__":

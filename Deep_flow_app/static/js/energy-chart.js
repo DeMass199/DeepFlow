@@ -70,6 +70,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadAndRenderChart();
             });
         });
+
+        // Reset energy data button
+        const resetBtn = document.getElementById('reset-energy-data-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset all energy data? This action cannot be undone.')) {
+                    resetEnergyData();
+                }
+            });
+        }
     }
 
     function updateWeekNavigation() {
@@ -289,11 +299,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
-                    hour12: localeSettings.locale.startsWith('en-US')
+                    hour12: false  // Always use 24-hour format
                 }).format(new Date(log.timestamp));
             } catch (e) {
                 // Fallback to manual timezone conversion if Intl.DateTimeFormat fails
-                return adjustedDate.toLocaleString(localeSettings.locale);
+                // Ensure 24-hour format in fallback as well
+                return adjustedDate.toLocaleString(localeSettings.locale, { hour12: false });
             }
         });
         
@@ -377,6 +388,66 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             }
+        });
+    }
+
+    function resetEnergyData() {
+        console.log('Resetting energy data...');
+        
+        fetch('/reset_energy_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Energy data reset successfully:', data);
+                alert(`Energy data reset successfully! Deleted ${data.deleted_logs} energy logs and ${data.deleted_insights} energy insights.`);
+                
+                // Hide the chart and show empty state
+                const chartContainer = document.getElementById('energy-chart');
+                const emptyInsights = document.getElementById('empty-insights');
+                
+                if (chartContainer) {
+                    chartContainer.style.display = 'none';
+                }
+                if (emptyInsights) {
+                    emptyInsights.style.display = 'block';
+                }
+                
+                // Destroy current chart if it exists
+                if (currentChart) {
+                    currentChart.destroy();
+                    currentChart = null;
+                }
+                
+                // Hide weekly feedback
+                hideWeeklyFeedback();
+                
+                // Reset to current week view
+                currentWeekOffset = 0;
+                currentDataRange = 'week';
+                updateWeekNavigation();
+                
+                // Update active button
+                const rangeButtons = document.querySelectorAll('.range-btn');
+                rangeButtons.forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.range === 'week') {
+                        btn.classList.add('active');
+                    }
+                });
+                
+            } else {
+                console.error('Failed to reset energy data:', data.error);
+                alert('Failed to reset energy data: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error resetting energy data:', error);
+            alert('An error occurred while resetting energy data. Please try again.');
         });
     }
 });
