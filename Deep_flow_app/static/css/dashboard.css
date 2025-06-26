@@ -764,6 +764,12 @@
     background-color: var(--neutral-400);
 }
 
+/* Dyslexic font mode */
+.dyslexic-font * {
+    font-family: "OpenDyslexic", var(--font-sans) !important;
+    line-height: 1.5 !important;
+}
+
 /* Animation enhancements */
 @keyframes pulse {
     0% { transform: scale(1); }
