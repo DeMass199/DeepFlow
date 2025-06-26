@@ -1907,11 +1907,8 @@ def delete_account():
 
 @app.route("/privacy")
 def privacy():
-    """Privacy policy page"""
-    if 'user_id' in session:
-        return render_template("privacy_policy_user.html")
-    else:
-        return render_template("privacy_policy_public.html")
+    """Privacy policy page - always shows public version"""
+    return render_template("privacy_policy_public.html")
 
 
 if __name__ == "__main__":

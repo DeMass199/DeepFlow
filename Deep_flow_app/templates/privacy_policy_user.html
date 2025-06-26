@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - DeepFlow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .policy-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .policy-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .policy-section h2 {
+            color: #007bff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .emphasize {
+            background: #e7f3ff;
+            border: 1px solid #007bff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        .data-controls {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .back-button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .back-button:hover {
+            background: #0056b3;
+        }
+        .user-info {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-shield-alt"></i> Privacy Policy</h1>
+        <p>Your privacy and data rights as a DeepFlow user</p>
+    </div>
+    
+    <div class="policy-container">
+        <div class="user-info">
+            <h3><i class="fas fa-user"></i> Welcome, {{ session.username if session.username else 'User' }}!</h3>
+            <p>As a registered user, you have full control over your data and additional privacy rights. This policy explains how we protect and manage your information.</p>
+        </div>
+
+        <div class="policy-section">
+            <h2><i class="fas fa-info-circle"></i> Introduction</h2>
+            <p>Welcome to DeepFlow's Privacy Policy. This policy describes how we collect, use, and protect your personal information as you use our application designed to support neurodivergent users, especially those with ADHD, in managing focus sessions and tracking energy levels.</p>
+            <p>We understand that your privacy and the security of your personal information is of utmost importance, which is why we've designed our privacy practices to comply with the Australian Privacy Act and the Australian Privacy Principles (APPs).</p>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-database"></i> Information We Collect</h2>
+            <ul>
+                <li><strong>Account Information:</strong> Your username and securely hashed password</li>
+                <li><strong>Focus Session Data:</strong> Timer durations, start and end times, session types</li>
+                <li><strong>Energy Levels:</strong> Your self-reported energy ratings before, during, and after focus sessions</li>
+                <li><strong>Flow Shelf Items:</strong> Task notes and ideas you add during focus sessions</li>
+                <li><strong>User Preferences:</strong> Your settings for check-ins, energy logging, and sound preferences</li>
+                <li><strong>Session Analytics:</strong> Aggregated data about your focus patterns and productivity trends</li>
+            </ul>
+            <div class="emphasize">
+                <i class="fas fa-shield-alt"></i> <strong>What we DON'T collect:</strong> We do NOT collect your real name, email address, location data, device identifiers, or any other personally identifying information beyond your chosen username.
+            </div>
+        </div>
+
+        <div class="policy-section">
+            <h2><i class="fas fa-tasks"></i> How We Use Your Information</h2>
+            <ul>
+                <li><strong>Provide Core Functionality:</strong> Enable focus timers, energy tracking, and session management</li>
+                <li><strong>Personalize Your Experience:</strong> Adapt the interface based on your preferences and usage patterns</li>
+                <li><strong>Generate Insights:</strong> Analyze your focus sessions and energy levels to help you identify optimal working times</li>
+                <li><strong>Improve the Application:</strong> Use aggregated, anonymized data to enhance DeepFlow's features</li>
+                <li><strong>Maintain Security:</strong> Protect your account and detect potential security issues</li>
+            </ul>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-lock"></i> Data Security</h2>
+            <p>We implement multiple layers of security to protect your information:</p>
+            <ul>
+                <li><strong>Password Security:</strong> Passwords are hashed using industry-standard bcrypt encryption</li>
+                <li><strong>Session Management:</strong> Secure authentication with automatic session timeouts</li>
+                <li><strong>Data Access Controls:</strong> Strict controls ensure you only have access to your own information</li>
+                <li><strong>Regular Security Reviews:</strong> Ongoing security assessments of our codebase and infrastructure</li>
+                <li><strong>Local Data Storage:</strong> Your data is stored locally and not shared with third parties</li>
+            </ul>
+        </div>
+
+        <div class="data-controls">
+            <h3><i class="fas fa-sliders-h"></i> Your Data Rights & Controls</h3>
+            <p>As a registered user, you have the following rights and controls:</p>
+            <ul>
+                <li><strong>Access:</strong> View all your data through the dashboard and energy insights</li>
+                <li><strong>Modification:</strong> Edit or delete individual sessions and flow shelf items</li>
+                <li><strong>Export:</strong> Request a copy of your data for personal use</li>
+                <li><strong>Deletion:</strong> Permanently delete your account and all associated data</li>
+                <li><strong>Preferences:</strong> Control what data is collected through your settings</li>
+            </ul>
+            <p><strong>To exercise these rights:</strong> Visit your <a href="{{ url_for('settings') }}">Settings page</a> or contact us at privacy@deepflow.example.com</p>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-exclamation-triangle"></i> Data Breach Notification</h2>
+            <p>In accordance with the Notifiable Data Breaches (NDB) scheme under the Privacy Act, we will:</p>
+            <ul>
+                <li>Notify you promptly if a data breach occurs that is likely to result in serious harm</li>
+                <li>Provide clear details about what information was affected</li>
+                <li>Advise you on specific steps to take to protect yourself from potential harm</li>
+                <li>Report eligible breaches to the Office of the Australian Information Commissioner (OAIC)</li>
+                <li>Take immediate action to secure the breach and prevent further unauthorized access</li>
+            </ul>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-share-alt"></i> Data Sharing</h2>
+            <div class="emphasize">
+                <i class="fas fa-lock"></i> <strong>We do NOT share your personal data with third parties.</strong> Your focus sessions, energy data, and personal information remain private and are only accessible to you.
+            </div>
+            <p>The only exception would be if required by law or to protect against illegal activities, in which case we would:</p>
+            <ul>
+                <li>Notify you unless legally prohibited from doing so</li>
+                <li>Only share the minimum necessary information</li>
+                <li>Ensure any shared data is handled securely</li>
+            </ul>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-universal-access"></i> Accessibility & Neurodivergent Support</h2>
+            <p>DeepFlow is designed with neurodivergent users in mind. We are committed to:</p>
+            <ul>
+                <li><strong>Accessible Design:</strong> OpenDyslexic font support and focus-friendly interfaces</li>
+                <li><strong>ADHD-Friendly Features:</strong> Non-disruptive notifications and customizable timers</li>
+                <li><strong>Privacy by Design:</strong> Minimal data collection that respects your cognitive load</li>
+                <li><strong>Compliance:</strong> Alignment with the Disability Discrimination Act 1992</li>
+                <li><strong>User Control:</strong> Extensive customization options to suit your needs</li>
+            </ul>
+        </div>
+
+        <div class="policy-section">
+            <h2><i class="fas fa-calendar-alt"></i> Data Retention</h2>
+            <p>We retain your data as follows:</p>
+            <ul>
+                <li><strong>Active Accounts:</strong> Data is retained while your account is active</li>
+                <li><strong>Account Deletion:</strong> All data is permanently deleted within 30 days of account deletion</li>
+                <li><strong>Inactive Accounts:</strong> Accounts inactive for over 2 years may be automatically deleted</li>
+                <li><strong>Session Data:</strong> You can delete individual sessions at any time</li>
+            </ul>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-edit"></i> Policy Updates</h2>
+            <p>We may update this privacy policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. We will:</p>
+            <ul>
+                <li>Notify you of material changes through the application</li>
+                <li>Provide the updated policy date and key changes</li>
+                <li>Give you the opportunity to review new terms before continued use</li>
+                <li>Maintain previous versions for your reference</li>
+            </ul>
+        </div>
+
+        <div class="policy-section">
+            <h2><i class="fas fa-gavel"></i> Your Rights Under Australian Privacy Law</h2>
+            <p>Under the Australian Privacy Act and the Australian Privacy Principles, you have the right to:</p>
+            <ul>
+                <li><strong>Know:</strong> What personal information we collect and how we use it</li>
+                <li><strong>Access:</strong> Request access to your personal information</li>
+                <li><strong>Correct:</strong> Request correction of inaccurate or incomplete information</li>
+                <li><strong>Complain:</strong> Make a complaint about our handling of your personal information</li>
+                <li><strong>Restrict:</strong> Request that we stop using your information for certain purposes</li>
+                <li><strong>Delete:</strong> Request deletion of your personal information</li>
+            </ul>
+            <p>To exercise these rights or if you have concerns, contact the Office of the Australian Information Commissioner at <a href="https://www.oaic.gov.au" target="_blank">www.oaic.gov.au</a></p>
+        </div>
+        
+        <div class="policy-section">
+            <h2><i class="fas fa-envelope"></i> Contact Us</h2>
+            <p>If you have any questions or concerns about this privacy policy or our data practices, please contact us:</p>
+            <ul>
+                <li><strong>Email:</strong> privacy@deepflow.example.com</li>
+                <li><strong>In-App:</strong> Use the settings page to manage your privacy preferences</li>
+                <li><strong>Response Time:</strong> We aim to respond to privacy inquiries within 5 business days</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="{{ url_for('dashboard') }}" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <a href="{{ url_for('settings') }}" class="back-button" style="background: #28a745; margin-left: 10px;">
+                <i class="fas fa-cog"></i> Privacy Settings
+            </a>
+        </div>
+    </div>
+    
+    <footer class="footer" style="margin-top: 40px;">
+        <p>&copy; 2025 DeepFlow - Focus Management for Neurodivergent Users</p>
+        <p style="font-size: 0.9em; color: #6c757d;">Last updated: January 2025 | Compliant with Australian Privacy Act 1988</p>
+    </footer>
+    
+    <!-- Accessibility scripts -->
+    <script>
+        // Check if the user has previously enabled accessibility features
+        document.addEventListener('DOMContentLoaded', function() {
+            if (localStorage.getItem('dyslexicFont') === 'true') {
+                document.body.classList.add('dyslexic-font');
+            }
+        });
+    </script>
+</body>
+</html>
