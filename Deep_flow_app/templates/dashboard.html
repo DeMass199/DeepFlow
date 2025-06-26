@@ -452,36 +452,17 @@
                 </div>
             </div>
 
-            <!-- Sound Options Section -->
+            <!-- Sound Controls Section -->
             <div class="timer-container">
                 <h2><i class="fas fa-volume-up"></i> Focus Sounds</h2>
-                <p>Play sounds to help maintain your focus environment.</p>
-                
+                <p>Select a background sound to help you focus.</p>
                 <div class="sound-options">
-                    <div class="sound-option" data-sound="whitenoise">
-                        <i class="fas fa-wave-square"></i> White Noise
-                    </div>
-                    <div class="sound-option" data-sound="brownnoise">
-                        <i class="fas fa-water"></i> Brown Noise
-                    </div>
-                    <div class="sound-option" data-sound="greynoise">
-                        <i class="fas fa-cloud"></i> Grey Noise
-                    </div>
-                    <div class="sound-option" data-sound="rain">
-                        <i class="fas fa-cloud-rain"></i> Rain
-                    </div>
-                    <div class="sound-option" data-sound="none">
-                        <i class="fas fa-volume-mute"></i> No Sound
-                    </div>
+                    <button class="btn sound-option" data-sound="whitenoise">White Noise</button>
+                    <button class="btn sound-option" data-sound="brownnoise">Brown Noise</button>
+                    <button class="btn sound-option" data-sound="greynoise">Grey Noise</button>
+                    <button class="btn sound-option" data-sound="rain">Rain</button>
+                    <button class="btn" id="stop-sound">No Sound</button>
                 </div>
-                
-                <div class="volume-control">
-                    <label for="volume-slider">Volume:</label>
-                    <input type="range" id="volume-slider" min="0" max="100" value="50">
-                    <span id="volume-value">50%</span>
-                </div>
-                
-                <audio id="sound-player" loop></audio>
             </div>
         </main>
     </div>
@@ -511,6 +492,7 @@
     <script src="{{ url_for('static', filename='js/timer-toggle.js') }}"></script>
     <script src="{{ url_for('static', filename='js/timer-display-helper.js') }}"></script>
     <script src="{{ url_for('static', filename='js/energy-chart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sound-manager.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const energyCheckinModal = document.getElementById('energyCheckinModal');
