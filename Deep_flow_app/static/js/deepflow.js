@@ -94,4 +94,149 @@ document.addEventListener('DOMContentLoaded', function () {
             resumeTimer(timerId);
         });
     });
+
+    // Flow Shelf functionality
+    initializeFlowShelf();
 });
+
+// Flow Shelf Functions
+function initializeFlowShelf() {
+    console.log('Initializing Flow Shelf...');
+    
+    // Load existing items
+    loadFlowShelfItems();
+    
+    // Add event listener for the Add button
+    const addButton = document.getElementById('add-to-shelf');
+    const textInput = document.getElementById('flow-shelf-text');
+    
+    if (addButton && textInput) {
+        addButton.addEventListener('click', function() {
+            const text = textInput.value.trim();
+            if (text) {
+                addFlowShelfItem(text);
+            }
+        });
+        
+        // Allow Enter key to add items
+        textInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const text = textInput.value.trim();
+                if (text) {
+                    addFlowShelfItem(text);
+                }
+            }
+        });
+    }
+}
+
+function loadFlowShelfItems() {
+    fetch('/get_shelf_items')
+        .then(response => response.json())
+        .then(data => {
+            if (data.items) {
+                displayFlowShelfItems(data.items);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading flow shelf items:', error);
+        });
+}
+
+function addFlowShelfItem(text) {
+    fetch('/add_shelf_item', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: text }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Clear the input
+            document.getElementById('flow-shelf-text').value = '';
+            // Reload the items
+            loadFlowShelfItems();
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error adding flow shelf item:', error);
+        alert('Failed to add item to Flow Shelf');
+    });
+}
+
+function removeFlowShelfItem(itemId) {
+    fetch('/remove_shelf_item', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: itemId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload the items
+            loadFlowShelfItems();
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error removing flow shelf item:', error);
+        alert('Failed to remove item from Flow Shelf');
+    });
+}
+
+function displayFlowShelfItems(items) {
+    const container = document.getElementById('flow-shelf-items');
+    const emptyState = document.getElementById('empty-shelf');
+    
+    if (!container) return;
+    
+    // Clear existing items (except empty state)
+    const existingItems = container.querySelectorAll('.flow-shelf-item');
+    existingItems.forEach(item => item.remove());
+    
+    if (items.length === 0) {
+        if (emptyState) {
+            emptyState.style.display = 'block';
+        }
+    } else {
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        
+        items.forEach(item => {
+            const itemElement = createFlowShelfItemElement(item);
+            container.appendChild(itemElement);
+        });
+    }
+}
+
+function createFlowShelfItemElement(item) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'flow-shelf-item';
+    
+    const textDiv = document.createElement('div');
+    textDiv.className = 'flow-shelf-item-text';
+    textDiv.textContent = item.text;
+    
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'flow-shelf-item-controls';
+    
+    const removeButton = document.createElement('button');
+    removeButton.className = 'btn btn-delete';
+    removeButton.innerHTML = '<i class="fas fa-trash"></i>';
+    removeButton.title = 'Remove item';
+    removeButton.onclick = () => removeFlowShelfItem(item.id);
+    
+    controlsDiv.appendChild(removeButton);
+    itemDiv.appendChild(textDiv);
+    itemDiv.appendChild(controlsDiv);
+    
+    return itemDiv;
+}
