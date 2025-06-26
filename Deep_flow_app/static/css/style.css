@@ -27,17 +27,6 @@
 }
 
 /* Accessibility Features */
-@font-face {
-    font-family: 'OpenDyslexic';
-    src: url('../fonts/OpenDyslexic-Regular.otf') format('opentype');
-    font-weight: normal;
-    font-style: normal;
-}
-
-body.dyslexic-font {
-    font-family: 'OpenDyslexic', Arial, sans-serif !important;
-}
-
 /* Accessibility control button styling */
 .accessibility-controls .btn {
     transition: all 0.3s ease;
@@ -54,11 +43,6 @@ body.dyslexic-font {
 .accessibility-controls .btn:focus {
     outline: 3px solid #0066ff;
     outline-offset: 2px;
-}
-
-/* Dyslexic font override */
-body.dyslexic-font * {
-    font-family: 'OpenDyslexic', Arial, sans-serif !important;
 }
 
 /* Flash messages and notifications */

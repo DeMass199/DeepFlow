@@ -101,13 +101,6 @@
             border-radius: 4px;
             border: 1px solid #ddd;
         }
-        .dyslexic-font {
-            font-family: 'OpenDyslexic', Arial, sans-serif !important;
-        }
-        @font-face {
-            font-family: 'OpenDyslexic';
-            src: url('{{ url_for("static", filename="fonts/OpenDyslexic-Regular.otf") }}') format('opentype');
-        }
         
         /* New styles for settings forms */
         .settings-form {
@@ -374,12 +367,6 @@
         <div class="accessibility-controls">
             <h3 style="width: 100%; margin-top: 0; margin-bottom: 10px; color: #2c3e50;"><i class="fas fa-universal-access"></i> Accessibility Options</h3>
             <div class="font-selector">
-                <label for="font-select"><i class="fas fa-font"></i> Font:</label>
-                <select id="font-select" onchange="changeFont(this.value)">
-                    <option value="default">Default Font</option>
-                    <option value="dyslexic">OpenDyslexic (Dyslexia-friendly)</option>
-                </select>
-            </div>
         </div>
         
         <!-- Flash Messages -->
@@ -618,10 +605,9 @@
                 <p>DeepFlow is designed with neurodivergent users in mind. We are committed to providing an accessible experience for all users, in alignment with the Disability Discrimination Act 1992 and <a href="{{ url_for('privacy') }}">Privacy Policy</a>.</p>
                 <p>Our accessibility features include:</p>
                 <ul>
-                    <li>OpenDyslexic font support for improved readability</li>
-                    <li>High contrast mode for visual accessibility</li>
                     <li>Focus-friendly interface designed for ADHD users</li>
                     <li>Non-disruptive notifications and controls</li>
+                    <li>Clear, readable typography</li>
                 </ul>
             </div>
 
@@ -678,17 +664,6 @@
     </div>
 
     <script>
-        function changeFont(fontType) {
-            const bodyElement = document.getElementById('body-element');
-            if (fontType === 'dyslexic') {
-                bodyElement.classList.add('dyslexic-font');
-            } else {
-                bodyElement.classList.remove('dyslexic-font');
-            }
-            // Save preference to localStorage
-            localStorage.setItem('deepflow_font_preference', fontType);
-        }
-
         function updateCountrySelection(countryCode) {
             const stateProvinceGroup = document.getElementById('state-province-group');
             const stateProvinceSelect = document.getElementById('state_province');
@@ -800,13 +775,7 @@
         }
 
         // Load saved preferences on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            const savedFont = localStorage.getItem('deepflow_font_preference');
-            if (savedFont) {
-                document.getElementById('font-select').value = savedFont;
-                changeFont(savedFont);
-            }
-            
+        document.addEventListener('DOMContentLoaded', function() {            
             // Initialize state/province dropdown based on current country
             const currentCountry = '{{ current_country }}';
             if (currentCountry) {
