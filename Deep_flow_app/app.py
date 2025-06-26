@@ -4,7 +4,7 @@ import sqlite3
 import os
 import logging
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -15,6 +15,123 @@ app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # Ensure DB_PATH points to Deepflow.db
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Deepflow.db')
+
+def convert_to_user_timezone(timestamp_str, timezone_offset_hours):
+    """
+    Convert a timestamp string to the user's timezone.
+    
+    Args:
+        timestamp_str: The timestamp string in format 'YYYY-MM-DD HH:MM:SS'
+        timezone_offset_hours: The timezone offset in hours (e.g., 10 for AEST, -5 for EST)
+    
+    Returns:
+        A datetime object adjusted to the user's timezone
+    """
+    try:
+        # Parse the timestamp as UTC (SQLite stores in server local time, treat as UTC for conversion)
+        dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+        
+        # Create timezone offset
+        offset = timezone(timedelta(hours=timezone_offset_hours))
+        
+        # Apply the timezone
+        dt_with_tz = dt.replace(tzinfo=timezone.utc).astimezone(offset)
+        
+        return dt_with_tz
+    except (ValueError, TypeError) as e:
+        logger.error("Error converting timestamp %s with offset %s: %s", 
+                    timestamp_str, timezone_offset_hours, str(e))
+        # Return original datetime if conversion fails
+        return datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+
+def get_user_timezone_offset(user_id):
+    """Get the user's timezone offset from their country and state preferences."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+        country = result[0] if result else 'US'
+        state_province = result[1] if result and result[1] else ''
+        conn.close()
+        
+        # Use the same timezone mapping logic from get_user_preferences
+        timezone_mappings = {
+            'US': {
+                'default': 10,  # Default to AEST for Australia (changed from -5)
+                'states': {
+                    'CA': -8,   # Pacific
+                    'NY': -5,   # Eastern
+                    'TX': -6,   # Central
+                    'FL': -5,   # Eastern
+                    'IL': -6,   # Central
+                    'WA': -8,   # Pacific
+                    'CO': -7,   # Mountain
+                    'AZ': -7,   # Mountain (no DST)
+                    'HI': -10,  # Hawaii
+                    'AK': -9,   # Alaska
+                }
+            },
+            'AU': {
+                'default': 10,
+                'states': {
+                    'NSW': 10,    # AEST
+                    'VIC': 10,    # AEST
+                    'QLD': 10,    # AEST (no DST)
+                    'WA': 8,      # AWST
+                    'SA': 9.5,    # ACST
+                    'TAS': 10,    # AEST
+                    'NT': 9.5,    # ACST (no DST)
+                    'ACT': 10,    # AEST
+                }
+            },
+            'CA': {
+                'default': -5,
+                'provinces': {
+                    'ON': -5,     # Eastern
+                    'QC': -5,     # Eastern
+                    'BC': -8,     # Pacific
+                    'AB': -7,     # Mountain
+                    'SK': -6,     # Central
+                    'MB': -6,     # Central
+                    'NB': -4,     # Atlantic
+                    'NS': -4,     # Atlantic
+                    'PE': -4,     # Atlantic
+                    'NL': -3.5,   # Newfoundland
+                }
+            },
+            'UK': {'default': 0},
+            'DE': {'default': 1},
+            'FR': {'default': 1},
+            'ES': {'default': 1},
+            'IT': {'default': 1},
+            'JP': {'default': 9},
+            'CN': {'default': 8},
+            'IN': {'default': 5.5},
+            'BR': {
+                'default': -3,
+                'states': {
+                    'SP': -3,     # BRT
+                    'RJ': -3,     # BRT
+                    'AC': -5,     # ACT
+                    'AM': -4,     # AMT
+                }
+            }
+        }
+        
+        country_data = timezone_mappings.get(country, timezone_mappings['AU'])  # Default to AU
+        
+        # Check for state/province specific timezone
+        if state_province and isinstance(country_data, dict):
+            for region_key in ['states', 'provinces']:
+                if region_key in country_data and state_province in country_data[region_key]:
+                    return country_data[region_key][state_province]
+        
+        return country_data.get('default', 10)  # Default to AEST (Australia) if not found
+        
+    except (sqlite3.Error, ValueError, TypeError) as e:
+        logger.error("Error getting user timezone offset: %s", str(e))
+        return 10  # Default to AEST (Australia) on error
 
 def validate_password(password):
     """
@@ -43,9 +160,6 @@ def validate_password(password):
     has_symbol = any(not char.isalnum() for char in password)
     if not has_symbol:
         missing_requirements.append("a symbol")
-    
-    # Remove the common words check to simplify password requirements
-    # We'll still keep the basic security requirements (length, uppercase, number, symbol)
     
     # If there are missing requirements, return the formatted message
     if missing_requirements:
@@ -107,6 +221,22 @@ def add_user_to_db(username, password):
     finally:
         if conn:
             conn.close()
+
+def validate_user(username, password):
+    """Validates a user's credentials"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user and check_password_hash(user[2], password):
+            return user
+        return None
+    except sqlite3.Error as e:
+        logger.error("Database error: %s", str(e))
+        return None
 
 # Update the database schema
 def init_db():
@@ -220,22 +350,6 @@ def init_db():
 
 # Initialize the database
 init_db()
-
-def validate_user(username, password):
-    """Validates a user's credentials"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-        user = cursor.fetchone()
-        conn.close()
-        
-        if user and check_password_hash(user[2], password):
-            return user
-        return None
-    except sqlite3.Error as e:
-        logger.error("Database error: %s", str(e))
-        return None
 
 @app.route("/")
 def home():
@@ -860,6 +974,9 @@ def get_energy_logs():
     user_id = session['user_id']
     
     try:
+        # Get user's timezone offset
+        timezone_offset = get_user_timezone_offset(user_id)
+        
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -879,9 +996,11 @@ def get_energy_logs():
         """, (user_id,))
         
         for row in cursor.fetchall():
+            # Convert timestamp to user's timezone
+            adjusted_time = convert_to_user_timezone(row["timestamp"], timezone_offset)
             all_logs.append({
                 "type": "check-in",
-                "timestamp": row["timestamp"],
+                "timestamp": adjusted_time.strftime('%Y-%m-%d %H:%M:%S'),
                 "energy_level": row["energy_level"],
                 "timer_name": row["timer_name"],
                 "stage": row["stage"]
@@ -897,9 +1016,11 @@ def get_energy_logs():
         """, (user_id,))
 
         for row in cursor.fetchall():
+            # Convert timestamp to user's timezone
+            adjusted_time = convert_to_user_timezone(row["timestamp"], timezone_offset)
             all_logs.append({
                 "type": "insight",
-                "timestamp": row["timestamp"],
+                "timestamp": adjusted_time.strftime('%Y-%m-%d %H:%M:%S'),
                 "energy_level": row["overall_energy"]
             })
         
@@ -1272,12 +1393,15 @@ def get_weekly_insights():
             'insight_message': insight_message
         }
         
-        # Format logs for frontend
+        # Format logs for frontend with timezone conversion
+        timezone_offset = get_user_timezone_offset(user_id)
         formatted_logs = []
         for log in weekly_logs:
+            # Convert timestamp to user's timezone
+            adjusted_time = convert_to_user_timezone(log[1], timezone_offset)
             formatted_logs.append({
                 'energy_level': log[0],
-                'timestamp': log[1]
+                'timestamp': adjusted_time.strftime('%Y-%m-%d %H:%M:%S')
             })
         
         conn.close()
@@ -1648,7 +1772,7 @@ def get_user_preferences():
                 }
             }
             
-            country_data = timezone_mappings.get(country, timezone_mappings['US'])
+            country_data = timezone_mappings.get(country, timezone_mappings['AU'])
             
             # Check for state/province specific timezone
             if state_province and isinstance(country_data, dict):
@@ -1656,7 +1780,7 @@ def get_user_preferences():
                     if region_key in country_data and state_province in country_data[region_key]:
                         return country_data[region_key][state_province]
             
-            return country_data.get('default', timezone_mappings['US']['default'])
+            return country_data.get('default', timezone_mappings['AU']['default'])
         
         timezone_info = get_timezone_info(country, state_province)
         
