@@ -263,4 +263,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return 'Timer';
     }
+    
+    // Make stopTimerDirectly globally available for timer completion
+    window.stopTimerDirectly = function(timerId) {
+        fetch(`/stop_timer/${timerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                console.error(`Error stopping timer: ${data.error}`);
+                window.location.reload(); // Fallback
+            }
+        })
+        .catch(error => {
+            console.error('Error stopping timer:', error);
+            window.location.reload(); // Fallback
+        });
+    };
 });

@@ -70,14 +70,28 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.start-timer-btn').forEach(button => {
         button.addEventListener('click', function() {
             const timerId = this.dataset.timerId;
-            showEnergyCheckinModal(timerId, 'start');
+            
+            // Check if energy logging is enabled before showing modal
+            if (window.userPreferences && window.userPreferences.enable_energy_log) {
+                showEnergyCheckinModal(timerId, 'start');
+            } else {
+                // If energy logging is disabled, start timer directly
+                startTimerDirectly(timerId);
+            }
         });
     });
 
     document.querySelectorAll('.stop-timer-btn').forEach(button => {
         button.addEventListener('click', function() {
             const timerId = this.dataset.timerId;
-            showEnergyCheckinModal(timerId, 'end');
+            
+            // Check if energy logging is enabled before showing modal
+            if (window.userPreferences && window.userPreferences.enable_energy_log) {
+                showEnergyCheckinModal(timerId, 'end');
+            } else {
+                // If energy logging is disabled, stop timer directly
+                stopTimerDirectly(timerId);
+            }
         });
     });
 
@@ -98,6 +112,49 @@ document.addEventListener('DOMContentLoaded', function () {
     // Flow Shelf functionality
     initializeFlowShelf();
 });
+
+// Functions to start/stop timers directly without energy check-in
+function startTimerDirectly(timerId) {
+    fetch(`/start_timer/${timerId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(`Error starting timer: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error starting timer:', error);
+        alert('Failed to start timer. Please try again.');
+    });
+}
+
+function stopTimerDirectly(timerId) {
+    fetch(`/stop_timer/${timerId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(`Error stopping timer: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error stopping timer:', error);
+        alert('Failed to stop timer. Please try again.');
+    });
+}
 
 // Flow Shelf Functions
 function initializeFlowShelf() {

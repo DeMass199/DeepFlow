@@ -749,7 +749,169 @@ def logout():
     return redirect(url_for("login"))
 
 
+# Helper functions for user preferences
+
+def get_user_feature_preferences(user_id):
+    """Get user's feature preferences as a dictionary"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Ensure user_preferences table exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER UNIQUE NOT NULL,
+                enable_checkin BOOLEAN DEFAULT 1,
+                enable_reentry BOOLEAN DEFAULT 1,
+                enable_energy_log BOOLEAN DEFAULT 1,
+                enable_sound BOOLEAN DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        """)
+        
+        # Get user preferences
+        cursor.execute("""
+            SELECT enable_checkin, enable_reentry, enable_energy_log, enable_sound
+            FROM user_preferences
+            WHERE user_id = ?
+        """, (user_id,))
+        
+        prefs = cursor.fetchone()
+        
+        if not prefs:
+            # Create default preferences for new user
+            cursor.execute("""
+                INSERT INTO user_preferences (user_id, enable_checkin, enable_reentry, enable_energy_log, enable_sound)
+                VALUES (?, ?, ?, ?, ?)
+            """, (user_id, 1, 1, 1, 0))
+            conn.commit()
+            prefs = (1, 1, 1, 0)  # Default values
+        
+        conn.close()
+        
+        return {
+            "enable_checkin": bool(prefs[0]),
+            "enable_reentry": bool(prefs[1]),
+            "enable_energy_log": bool(prefs[2]),
+            "enable_sound": bool(prefs[3])
+        }
+        
+    except sqlite3.Error as e:
+        logger.error("Error getting user preferences: %s", str(e))
+        # Return defaults if there's an error
+        return {
+            "enable_checkin": True,
+            "enable_reentry": True,
+            "enable_energy_log": True,
+            "enable_sound": False
+        }
+
+def is_feature_enabled(user_id, feature_name):
+    """Check if a specific feature is enabled for a user"""
+    prefs = get_user_feature_preferences(user_id)
+    return prefs.get(feature_name, True)  # Default to True if feature not found
+
 # New API endpoints for advanced DeepFlow features
+
+# User Preferences API Endpoints
+
+@app.route("/get_user_preferences", methods=["GET"])
+def get_user_preferences():
+    """Get user's advanced feature preferences"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Add user_preferences table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER UNIQUE NOT NULL,
+                enable_checkin BOOLEAN DEFAULT 1,
+                enable_reentry BOOLEAN DEFAULT 1,
+                enable_energy_log BOOLEAN DEFAULT 1,
+                enable_sound BOOLEAN DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        """)
+        
+        # Get user preferences
+        cursor.execute("""
+            SELECT enable_checkin, enable_reentry, enable_energy_log, enable_sound
+            FROM user_preferences
+            WHERE user_id = ?
+        """, (session['user_id'],))
+        
+        prefs = cursor.fetchone()
+        
+        if not prefs:
+            # Create default preferences for new user
+            cursor.execute("""
+                INSERT INTO user_preferences (user_id, enable_checkin, enable_reentry, enable_energy_log, enable_sound)
+                VALUES (?, ?, ?, ?, ?)
+            """, (session['user_id'], 1, 1, 1, 0))
+            conn.commit()
+            prefs = (1, 1, 1, 0)  # Default values
+        
+        conn.close()
+        
+        return {
+            "success": True,
+            "preferences": {
+                "enable_checkin": bool(prefs[0]),
+                "enable_reentry": bool(prefs[1]),
+                "enable_energy_log": bool(prefs[2]),
+                "enable_sound": bool(prefs[3])
+            }
+        }, 200
+        
+    except sqlite3.Error as e:
+        logger.error("Error getting user preferences: %s", str(e))
+        return {"error": "Database error"}, 500
+
+
+@app.route("/update_user_preferences", methods=["POST"])
+def update_user_preferences():
+    """Update user's advanced feature preferences"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    if request.is_json:
+        data = request.get_json()
+        
+        enable_checkin = data.get("enable_checkin", True)
+        enable_reentry = data.get("enable_reentry", True)
+        enable_energy_log = data.get("enable_energy_log", True)
+        enable_sound = data.get("enable_sound", False)
+        
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            
+            # Update or insert preferences
+            cursor.execute("""
+                INSERT OR REPLACE INTO user_preferences 
+                (user_id, enable_checkin, enable_reentry, enable_energy_log, enable_sound)
+                VALUES (?, ?, ?, ?, ?)
+            """, (session['user_id'], enable_checkin, enable_reentry, enable_energy_log, enable_sound))
+            
+            conn.commit()
+            conn.close()
+            
+            return {
+                "success": True,
+                "message": "Preferences updated successfully"
+            }, 200
+            
+        except sqlite3.Error as e:
+            logger.error("Error updating user preferences: %s", str(e))
+            return {"error": "Database error"}, 500
+    
+    return {"error": "Invalid request"}, 400
 
 # Flow Shelf API Endpoints
 
@@ -876,6 +1038,10 @@ def log_energy():
     """Log user's energy level for a timer session"""
     if 'user_id' not in session:
         return {"error": "Not authenticated"}, 401
+    
+    # Check if energy logging is enabled for this user
+    if not is_feature_enabled(session['user_id'], 'enable_energy_log'):
+        return {"error": "Energy logging is disabled"}, 403
     
     if request.is_json:
         data = request.get_json()
@@ -1058,6 +1224,7 @@ def start_timer_route(timer_id):
         logger.error("Error starting timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
+
 @app.route("/pause_timer/<int:timer_id>", methods=["POST"])
 def pause_timer_route(timer_id):
     if 'user_id' not in session:
@@ -1104,6 +1271,7 @@ def pause_timer_route(timer_id):
         logger.error("Error pausing timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
+
 @app.route("/resume_timer/<int:timer_id>", methods=["POST"])
 def resume_timer_route(timer_id):
     if 'user_id' not in session:
@@ -1123,6 +1291,7 @@ def resume_timer_route(timer_id):
     except sqlite3.Error as e:
         logger.error("Error resuming timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
+
 
 @app.route("/stop_timer/<int:timer_id>", methods=["POST"])
 def stop_timer_route(timer_id):
@@ -1146,7 +1315,7 @@ def stop_timer_route(timer_id):
             is_currently_running = timer_data[2]
             
             # If timer is currently running, add current session time
-            if is_currently_running == 1 and timer_data[0]:
+            if is_currently_running == 1 and timer_data[0]:  # Running and has start_time
                 start_time_str = timer_data[0]
                 start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
                 current_time = datetime.now()
@@ -1367,7 +1536,7 @@ def get_weekly_insights():
             elif second_avg < first_avg - 0.5:
                 trend = "📉 Declining"
             else:
-                trend = "➡️ Stable"
+                trend = "📊 Stable"
         else:
             trend = "📊 Building data"
         
@@ -1401,7 +1570,9 @@ def get_weekly_insights():
             adjusted_time = convert_to_user_timezone(log[1], timezone_offset)
             formatted_logs.append({
                 'energy_level': log[0],
-                'timestamp': adjusted_time.strftime('%Y-%m-%d %H:%M:%S')
+                'timestamp': adjusted_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'day_of_week': log[2],
+                'hour_of_day': log[3]
             })
         
         conn.close()
@@ -1416,7 +1587,7 @@ def get_weekly_insights():
         
     except (sqlite3.Error, ValueError) as e:
         logger.error("Error getting weekly insights: %s", str(e))
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return {"error": "Database error"}, 500
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -1447,155 +1618,150 @@ def settings():
         
         if action == "update_username":
             new_username = request.form.get("new_username", "").strip()
-            password = request.form.get("current_password", "").strip()
+            if not new_username:
+                flash("Username cannot be empty!", "error")
+                return redirect(url_for("settings"))
             
-            # Validate inputs
-            if not new_username or not password:
-                flash("Both new username and current password are required!", "error")
-            else:
-                # Verify current password
-                user = validate_user(username, password)
-                if not user:
-                    flash("Current password is incorrect!", "error")
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", 
+                             (new_username, session['user_id']))
+                if cursor.fetchone():
+                    flash("Username already exists!", "error")
                 else:
-                    # Check if new username already exists
-                    try:
-                        conn = sqlite3.connect(DB_PATH)
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT username FROM users WHERE username = ? AND id != ?", 
-                                    (new_username, session['user_id']))
-                        if cursor.fetchone():
-                            flash("Username already exists. Please choose a different one.", "error")
-                        else:
-                            # Update username
-                            cursor.execute("UPDATE users SET username = ? WHERE id = ?", 
-                                        (new_username, session['user_id']))
-                            conn.commit()
-                            session['username'] = new_username
-                            flash("Username updated successfully!", "success")
-                        conn.close()
-                    except sqlite3.Error as e:
-                        logger.error("Error updating username: %s", str(e))
-                        flash("Failed to update username.", "error")
+                    cursor.execute("UPDATE users SET username = ? WHERE id = ?", 
+                                 (new_username, session['user_id']))
+                    conn.commit()
+                    session['username'] = new_username
+                    flash("Username updated successfully!", "success")
+                conn.close()
+            except sqlite3.Error as e:
+                logger.error("Error updating username: %s", str(e))
+                flash("Error updating username.", "error")
+            
+            return redirect(url_for("settings"))
                         
         elif action == "update_password":
             current_password = request.form.get("current_password", "").strip()
             new_password = request.form.get("new_password", "").strip()
             confirm_password = request.form.get("confirm_password", "").strip()
             
-            # Validate inputs
-            if not current_password or not new_password or not confirm_password:
+            if not all([current_password, new_password, confirm_password]):
                 flash("All password fields are required!", "error")
-            elif new_password != confirm_password:
-                flash("New passwords do not match!", "error")
-            else:
-                # Verify current password
-                user = validate_user(username, current_password)
-                if not user:
-                    flash("Current password is incorrect!", "error")
-                else:
-                    # Validate new password
-                    is_valid, message = validate_password(new_password)
-                    if not is_valid:
-                        flash(message, "error")
-                    else:
-                        # Update password
-                        try:
-                            conn = sqlite3.connect(DB_PATH)
-                            cursor = conn.cursor()
-                            hashed_password = generate_password_hash(new_password)
-                            cursor.execute("UPDATE users SET password = ? WHERE id = ?", 
-                                        (hashed_password, session['user_id']))
-                            conn.commit()
-                            conn.close()
-                            flash("Password updated successfully!", "success")
-                        except sqlite3.Error as e:
-                            logger.error("Error updating password: %s", str(e))
-                            flash("Failed to update password.", "error")
-                            
-        elif action == "update_country":
-            new_country = request.form.get("country", "").strip()
-            new_state = request.form.get("state_province", "").strip()
+                return redirect(url_for("settings"))
             
-            # Validate country code
-            valid_countries = ['US', 'UK', 'AU', 'CA', 'DE', 'FR', 'ES', 'IT', 'JP', 'CN', 'IN', 'BR']
-            if new_country in valid_countries:
-                try:
-                    conn = sqlite3.connect(DB_PATH)
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE users SET country = ?, state_province = ? WHERE id = ?", 
-                                (new_country, new_state if new_state else None, session['user_id']))
+            if new_password != confirm_password:
+                flash("New passwords do not match!", "error")
+                return redirect(url_for("settings"))
+            
+            # Validate new password
+            is_valid, message = validate_password(new_password)
+            if not is_valid:
+                flash(message, "error")
+                return redirect(url_for("settings"))
+            
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("SELECT password FROM users WHERE id = ?", (session['user_id'],))
+                stored_password = cursor.fetchone()[0]
+                
+                if check_password_hash(stored_password, current_password):
+                    hashed_new_password = generate_password_hash(new_password)
+                    cursor.execute("UPDATE users SET password = ? WHERE id = ?", 
+                                 (hashed_new_password, session['user_id']))
                     conn.commit()
-                    conn.close()
-                    current_country = new_country
-                    current_state = new_state
-                    flash("Location updated successfully!", "success")
-                except sqlite3.Error as e:
-                    logger.error("Error updating location: %s", str(e))
-                    flash("Failed to update location.", "error")
-            else:
-                flash("Invalid country selection.", "error")
-    
-    last_updated = datetime.now().strftime("%B %d, %Y")
-    return render_template("settings.html", username=username, last_updated=last_updated, 
-                         current_country=current_country, current_state=current_state)
+                    flash("Password updated successfully!", "success")
+                else:
+                    flash("Current password is incorrect!", "error")
+                
+                conn.close()
+            except sqlite3.Error as e:
+                logger.error("Error updating password: %s", str(e))
+                flash("Error updating password.", "error")
+            
+            return redirect(url_for("settings"))
+            
+        elif action == "update_country":
+            country = request.form.get("country", "").strip()
+            state_province = request.form.get("state_province", "").strip()
+            
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET country = ?, state_province = ? WHERE id = ?", 
+                             (country, state_province, session['user_id']))
+                conn.commit()
+                conn.close()
+                flash("Location updated successfully!", "success")
+            except sqlite3.Error as e:
+                logger.error("Error updating location: %s", str(e))
+                flash("Error updating location.", "error")
+            
+            return redirect(url_for("settings"))
+
+    return render_template("settings.html", 
+                         username=username,
+                         current_country=current_country,
+                         current_state=current_state)
 
 
 @app.route("/export_user_data")
 def export_user_data():
-    """Export all user data in JSON format"""
+    """Export user data as JSON"""
     if 'user_id' not in session:
         flash("Please login first!", "error")
         return redirect(url_for("login"))
     
     try:
         user_id = session['user_id']
-        username = session['username']
-        
         conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Get user account info (excluding password)
-        cursor.execute("SELECT id, username FROM users WHERE id = ?", (user_id,))
-        user_data = dict(cursor.fetchone())
+        # Get user info
+        cursor.execute("SELECT username, country, state_province FROM users WHERE id = ?", (user_id,))
+        user_info = cursor.fetchone()
         
-        # Get user timers
+        # Get timers
         cursor.execute("SELECT * FROM timers WHERE user_id = ?", (user_id,))
-        timers = [dict(row) for row in cursor.fetchall()]
-        
-        # Get flow shelf items
-        cursor.execute("SELECT * FROM flow_shelf WHERE user_id = ?", (user_id,))
-        flow_shelf = [dict(row) for row in cursor.fetchall()]
+        timers = cursor.fetchall()
         
         # Get energy logs
         cursor.execute("SELECT * FROM energy_logs WHERE user_id = ?", (user_id,))
-        energy_logs = [dict(row) for row in cursor.fetchall()]
+        energy_logs = cursor.fetchall()
+        
+        # Get energy insights
+        cursor.execute("SELECT * FROM energy_insights WHERE user_id = ?", (user_id,))
+        energy_insights = cursor.fetchall()
+        
+        # Get flow shelf items
+        cursor.execute("SELECT * FROM flow_shelf WHERE user_id = ?", (user_id,))
+        flow_shelf = cursor.fetchall()
         
         conn.close()
         
-        # Compile all user data
-        data = {
-            'user': user_data,
-            'timers': timers,
-            'flow_shelf': flow_shelf,
-            'energy_logs': energy_logs,
-            'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        user_data = {
+            "user_info": {
+                "username": user_info[0],
+                "country": user_info[1],
+                "state_province": user_info[2]
+            },
+            "timers": [dict(zip([col[0] for col in cursor.description], timer)) for timer in timers],
+            "energy_logs": [dict(zip([col[0] for col in cursor.description], log)) for log in energy_logs],
+            "energy_insights": [dict(zip([col[0] for col in cursor.description], insight)) for insight in energy_insights],
+            "flow_shelf": [dict(zip([col[0] for col in cursor.description], item)) for item in flow_shelf]
         }
         
-        # Create a JSON response with a file download
-        response = app.response_class(
-            response=json.dumps(data, indent=4),
-            mimetype='application/json'
-        )
-        response.headers["Content-Disposition"] = f"attachment; filename=deepflow_data_{username}_{datetime.now().strftime('%Y%m%d')}.json"
-        
+        response = jsonify(user_data)
+        response.headers['Content-Disposition'] = f'attachment; filename=deepflow_data_{user_info[0]}.json'
         return response
         
     except sqlite3.Error as e:
         logger.error("Error exporting user data: %s", str(e))
-        flash("Failed to export user data.", "error")
-        return redirect(url_for("dashboard"))
+        flash("Error exporting data.", "error")
+        return redirect(url_for("settings"))
+
 
 @app.route("/delete_account", methods=["GET", "POST"])
 def delete_account():
@@ -1604,283 +1770,63 @@ def delete_account():
         flash("Please login first!", "error")
         return redirect(url_for("login"))
     
-    if request.method == "GET":
-        # Show confirmation page
-        return render_template("delete_account.html")
+    if request.method == "POST":
+        password = request.form.get("password", "").strip()
+        confirm_text = request.form.get("confirm_text", "").strip()
+        
+        if not password:
+            flash("Password is required to delete account!", "error")
+            return render_template("delete_account.html")
+        
+        if confirm_text.lower() != "delete my account":
+            flash("Please type 'delete my account' to confirm deletion.", "error")
+            return render_template("delete_account.html")
+        
+        try:
+            user_id = session['user_id']
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            
+            # Verify password
+            cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
+            stored_password = cursor.fetchone()[0]
+            
+            if not check_password_hash(stored_password, password):
+                flash("Incorrect password!", "error")
+                return render_template("delete_account.html")
+            
+            # Delete all user data
+            cursor.execute("DELETE FROM energy_insights WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM energy_logs WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM flow_shelf WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM timers WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM user_preferences WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            # Clear session
+            session.clear()
+            
+            flash("Account deleted successfully.", "success")
+            return redirect(url_for("home"))
+            
+        except sqlite3.Error as e:
+            logger.error("Error deleting account: %s", str(e))
+            flash("Error deleting account.", "error")
+            return render_template("delete_account.html")
     
-    try:
-        user_id = session['user_id']
-        
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # Delete all user data in correct order (respecting foreign keys)
-        cursor.execute("DELETE FROM energy_logs WHERE user_id = ?", (user_id,))
-        cursor.execute("DELETE FROM flow_shelf WHERE user_id = ?", (user_id,))
-        cursor.execute("DELETE FROM timers WHERE user_id = ?", (user_id,))
-        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        
-        conn.commit()
-        conn.close()
-        
-        # Clear session
-        session.clear()
-        
-        flash("Your account and all associated data have been permanently deleted.", "success")
-        return redirect(url_for("home"))
-        
-    except sqlite3.Error as e:
-        logger.error("Error deleting user account: %s", str(e))
-        flash("Failed to delete account. Please try again.", "error")
-        return redirect(url_for("dashboard"))
+    return render_template("delete_account.html")
+
 
 @app.route("/privacy")
 def privacy():
-    """Show the privacy policy as a standalone page"""
-    current_date = datetime.now().strftime("%B %d, %Y")
-    return render_template("privacy_policy.html", current_date=current_date)
-
-@app.route("/privacy-public")
-def privacy_public():
-    """Show the public privacy policy page (no login required)"""
-    return render_template("privacy_policy_public.html")
-
-@app.route("/privacy-user")
-def privacy_user():
-    """Show the user privacy policy page (login required)"""
-    if 'user_id' not in session:
-        flash("Please login to view the full privacy policy.", "error")
-        return redirect(url_for("login"))
-    return render_template("privacy_policy_user.html")
-
-@app.route("/update_country_preference", methods=["POST"])
-def update_country_preference():
-    """Update user's country preference via AJAX"""
-    if 'user_id' not in session:
-        return {"error": "Not authenticated"}, 401
-    
-    if request.is_json:
-        data = request.get_json()
-        country = data.get("country")
+    """Privacy policy page"""
+    if 'user_id' in session:
+        return render_template("privacy_policy_user.html")
     else:
-        country = request.form.get("country")
-    
-    # Validate country code
-    valid_countries = ['US', 'UK', 'AU', 'CA', 'DE', 'FR', 'ES', 'IT', 'JP', 'CN', 'IN', 'BR']
-    if country not in valid_countries:
-        return {"error": "Invalid country code"}, 400
-    
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE users SET country = ? WHERE id = ?", 
-                    (country, session['user_id']))
-        conn.commit()
-        conn.close()
-        
-        return {"success": True, "message": "Country updated successfully"}, 200
-    except sqlite3.Error as e:
-        logger.error("Error updating country preference: %s", str(e))
-        return {"error": "Database error"}, 500
-
-
-@app.route("/get_user_preferences", methods=["GET"])
-def get_user_preferences():
-    """Get user preferences including country, state/province and timezone for chart formatting"""
-    if 'user_id' not in session:
-        return {"error": "Not authenticated"}, 401
-    
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (session['user_id'],))
-        result = cursor.fetchone()
-        country = result[0] if result else 'AU'
-        state_province = result[1] if result and result[1] else ''
-        conn.close()
-        
-        # Define precise timezone mappings for countries and states/provinces
-        def get_timezone_info(country, state_province=''):
-            timezone_mappings = {
-                'US': {
-                    'default': {'timezone': 'America/New_York', 'offset': -5},
-                    'states': {
-                        'CA': {'timezone': 'America/Los_Angeles', 'offset': -8},  # Pacific
-                        'NY': {'timezone': 'America/New_York', 'offset': -5},     # Eastern
-                        'TX': {'timezone': 'America/Chicago', 'offset': -6},      # Central
-                        'FL': {'timezone': 'America/New_York', 'offset': -5},     # Eastern
-                        'IL': {'timezone': 'America/Chicago', 'offset': -6},      # Central
-                        'WA': {'timezone': 'America/Los_Angeles', 'offset': -8},  # Pacific
-                        'CO': {'timezone': 'America/Denver', 'offset': -7},       # Mountain
-                        'AZ': {'timezone': 'America/Phoenix', 'offset': -7},      # Mountain (no DST)
-                        'HI': {'timezone': 'Pacific/Honolulu', 'offset': -10},    # Hawaii
-                        'AK': {'timezone': 'America/Anchorage', 'offset': -9},    # Alaska
-                    }
-                },
-                'CA': {
-                    'default': {'timezone': 'America/Toronto', 'offset': -5},
-                    'provinces': {
-                        'ON': {'timezone': 'America/Toronto', 'offset': -5},      # Eastern
-                        'QC': {'timezone': 'America/Toronto', 'offset': -5},      # Eastern
-                        'BC': {'timezone': 'America/Vancouver', 'offset': -8},    # Pacific
-                        'AB': {'timezone': 'America/Edmonton', 'offset': -7},     # Mountain
-                        'SK': {'timezone': 'America/Regina', 'offset': -6},       # Central
-                        'MB': {'timezone': 'America/Winnipeg', 'offset': -6},     # Central
-                        'NB': {'timezone': 'America/Moncton', 'offset': -4},      # Atlantic
-                        'NS': {'timezone': 'America/Halifax', 'offset': -4},      # Atlantic
-                        'PE': {'timezone': 'America/Halifax', 'offset': -4},      # Atlantic
-                        'NL': {'timezone': 'America/St_Johns', 'offset': -3.5},   # Newfoundland
-                    }
-                },
-                'AU': {
-                    'default': {'timezone': 'Australia/Sydney', 'offset': 10},
-                    'states': {
-                        'NSW': {'timezone': 'Australia/Sydney', 'offset': 10},    # AEST
-                        'VIC': {'timezone': 'Australia/Melbourne', 'offset': 10}, # AEST
-                        'QLD': {'timezone': 'Australia/Brisbane', 'offset': 10},  # AEST (no DST)
-                        'WA': {'timezone': 'Australia/Perth', 'offset': 8},       # AWST
-                        'SA': {'timezone': 'Australia/Adelaide', 'offset': 9.5},  # ACST
-                        'TAS': {'timezone': 'Australia/Hobart', 'offset': 10},    # AEST
-                        'NT': {'timezone': 'Australia/Darwin', 'offset': 9.5},    # ACST (no DST)
-                        'ACT': {'timezone': 'Australia/Sydney', 'offset': 10},    # AEST
-                    }
-                },
-                'UK': {
-                    'default': {'timezone': 'Europe/London', 'offset': 0},
-                    'regions': {
-                        'England': {'timezone': 'Europe/London', 'offset': 0},
-                        'Scotland': {'timezone': 'Europe/London', 'offset': 0},
-                        'Wales': {'timezone': 'Europe/London', 'offset': 0},
-                        'Northern Ireland': {'timezone': 'Europe/London', 'offset': 0},
-                    }
-                },
-                'DE': {'default': {'timezone': 'Europe/Berlin', 'offset': 1}},
-                'FR': {'default': {'timezone': 'Europe/Paris', 'offset': 1}},
-                'ES': {'default': {'timezone': 'Europe/Madrid', 'offset': 1}},
-                'IT': {'default': {'timezone': 'Europe/Rome', 'offset': 1}},
-                'JP': {'default': {'timezone': 'Asia/Tokyo', 'offset': 9}},
-                'CN': {'default': {'timezone': 'Asia/Shanghai', 'offset': 8}},
-                'IN': {'default': {'timezone': 'Asia/Kolkata', 'offset': 5.5}},
-                'BR': {
-                    'default': {'timezone': 'America/Sao_Paulo', 'offset': -3},
-                    'states': {
-                        'SP': {'timezone': 'America/Sao_Paulo', 'offset': -3},    # BRT
-                        'RJ': {'timezone': 'America/Sao_Paulo', 'offset': -3},    # BRT
-                        'AC': {'timezone': 'America/Rio_Branco', 'offset': -5},   # ACT
-                        'AM': {'timezone': 'America/Manaus', 'offset': -4},       # AMT
-                    }
-                }
-            }
-            
-            country_data = timezone_mappings.get(country, timezone_mappings['AU'])
-            
-            # Check for state/province specific timezone
-            if state_province and isinstance(country_data, dict):
-                for region_key in ['states', 'provinces', 'regions']:
-                    if region_key in country_data and state_province in country_data[region_key]:
-                        return country_data[region_key][state_province]
-            
-            return country_data.get('default', timezone_mappings['AU']['default'])
-        
-        timezone_info = get_timezone_info(country, state_province)
-        
-        return {
-            "success": True, 
-            "country": country,
-            "state_province": state_province,
-            "timezone": timezone_info['timezone'],
-            "timezone_offset": timezone_info['offset']
-        }, 200
-    except sqlite3.Error as e:
-        logger.error("Error getting user preferences: %s", str(e))
-        return {"error": "Database error"}, 500
-
-
-@app.route("/get_timer_state/<int:timer_id>", methods=["GET"])
-def get_timer_state(timer_id):
-    """Get current state and elapsed time for a timer"""
-    if 'user_id' not in session:
-        return {"error": "Not authenticated"}, 401
-    
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT start_time, elapsed_time, is_running, duration FROM timers
-            WHERE id = ? AND user_id = ?
-        """, (timer_id, session['user_id']))
-        
-        timer_data = cursor.fetchone()
-        conn.close()
-        
-        if not timer_data:
-            return {"error": "Timer not found"}, 404
-        
-        start_time_str, stored_elapsed, is_running, duration = timer_data
-        current_elapsed_ms = stored_elapsed or 0
-        
-        # If timer is currently running, calculate total elapsed time
-        if is_running == 1 and start_time_str:
-            start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
-            current_time = datetime.now()
-            session_elapsed_ms = int((current_time - start_time).total_seconds() * 1000)
-            current_elapsed_ms += session_elapsed_ms
-        
-        # Calculate remaining time in milliseconds
-        duration_ms = duration * 1000  # Convert duration from seconds to milliseconds
-        remaining_ms = max(0, duration_ms - current_elapsed_ms)
-        
-        return {
-            "success": True,
-            "timer_id": timer_id,
-            "is_running": is_running,
-            "duration_ms": duration_ms,
-            "elapsed_ms": current_elapsed_ms,
-            "remaining_ms": remaining_ms,
-            "start_time": start_time_str
-        }
-        
-    except sqlite3.Error as e:
-        logger.error("Error getting timer state: %s", e)
-        return {"error": "Database error"}, 500
-
-
-@app.route("/reset_energy_data", methods=["POST"])
-def reset_energy_data():
-    """Reset all energy-related data (logs and insights) for the current user"""
-    if 'user_id' not in session:
-        return {"error": "Not authenticated"}, 401
-    
-    try:
-        user_id = session['user_id']
-        
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # Delete all energy logs for the user
-        cursor.execute("DELETE FROM energy_logs WHERE user_id = ?", (user_id,))
-        deleted_logs = cursor.rowcount
-        
-        # Delete all energy insights for the user
-        cursor.execute("DELETE FROM energy_insights WHERE user_id = ?", (user_id,))
-        deleted_insights = cursor.rowcount
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info("Reset energy data for user %d: %d logs, %d insights deleted", 
-                   user_id, deleted_logs, deleted_insights)
-        
-        return {
-            "success": True,
-            "message": f"Successfully reset all energy data. Deleted {deleted_logs} energy logs and {deleted_insights} energy insights.",
-            "deleted_logs": deleted_logs,
-            "deleted_insights": deleted_insights
-        }, 200
-        
-    except sqlite3.Error as e:
-        logger.error("Error resetting energy data for user %d: %s", session['user_id'], str(e))
-        return {"error": "Database error occurred while resetting data"}, 500
+        return render_template("privacy_policy_public.html")
 
 
 if __name__ == "__main__":

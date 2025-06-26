@@ -183,6 +183,186 @@
         .tab-content.active {
             display: block;
         }
+        
+        /* Advanced Features Styles */
+        .advanced-features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.1);
+        }
+        .feature-toggle {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .feature-toggle input[type="checkbox"] {
+            margin-top: 4px;
+            transform: scale(1.2);
+            accent-color: #007bff;
+        }
+        .toggle-label {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            flex: 1;
+        }
+        .feature-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+        .feature-description {
+            color: #6c757d;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        .feature-info {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+        .feature-info p {
+            margin: 0;
+            color: #1565c0;
+        }
+        
+        /* Toast notification styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+        }
+
+        .toast {
+            background-color: #333;
+            color: white;
+            padding: 12px 24px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            max-width: 350px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            background-color: #28a745;
+            border-left: 4px solid #1e7e34;
+        }
+
+        .toast.info {
+            background-color: #17a2b8;
+            border-left: 4px solid #117a8b;
+        }
+
+        .toast.warning {
+            background-color: #ffc107;
+            color: #212529;
+            border-left: 4px solid #d39e00;
+        }
+
+        .toast.error {
+            background-color: #dc3545;
+            border-left: 4px solid #bd2130;
+        }
+
+        .toast-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .toast-message {
+            flex-grow: 1;
+            font-weight: 500;
+        }
+
+        /* Feature status indicators */
+        .feature-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .feature-status.enabled {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .feature-status.disabled {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .feature-toggle label {
+            position: relative;
+        }
+
+        /* Improved checkbox styling */
+        .feature-toggle input[type="checkbox"] {
+            appearance: none;
+            width: 50px;
+            height: 26px;
+            background-color: #ccc;
+            border-radius: 13px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+
+        .feature-toggle input[type="checkbox"]:checked {
+            background-color: #007bff;
+        }
+
+        .feature-toggle input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background-color: white;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .feature-toggle input[type="checkbox"]:checked::before {
+            transform: translateX(24px);
+        }
     </style>
 </head>
 <body id="body-element">
@@ -300,6 +480,69 @@
                     <button type="submit" class="btn-submit">Update Location</button>
                 </form>
             </div>
+
+            <div class="section">
+                <h3>DeepFlow Advanced Features</h3>
+                <p>Configure which advanced features are enabled during your focus sessions:</p>
+                
+                <div class="advanced-features-grid">
+                    <div class="feature-card">
+                        <div class="feature-toggle">
+                            <input type="checkbox" id="enable-checkin" onchange="toggleCheckinFeature(this.checked)" checked>
+                            <label for="enable-checkin" class="toggle-label">
+                                <span class="feature-title">
+                                    Mid-Session Energy Check-In
+                                    <span id="checkin-status" class="feature-status enabled">ENABLED</span>
+                                </span>
+                                <span class="feature-description">Optional prompts during long sessions to track your energy levels</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-toggle">
+                            <input type="checkbox" id="enable-reentry" onchange="toggleReentryFeature(this.checked)" checked>
+                            <label for="enable-reentry" class="toggle-label">
+                                <span class="feature-title">
+                                    Post-Session Re-Entry
+                                    <span id="reentry-status" class="feature-status enabled">ENABLED</span>
+                                </span>
+                                <span class="feature-description">Gentle tools to help you re-enter focus after breaks or session ends</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-toggle">
+                            <input type="checkbox" id="enable-energy-log" onchange="toggleEnergyLogFeature(this.checked)" checked>
+                            <label for="enable-energy-log" class="toggle-label">
+                                <span class="feature-title">
+                                    Energy Level Tracking
+                                    <span id="energy-log-status" class="feature-status enabled">ENABLED</span>
+                                </span>
+                                <span class="feature-description">Track and analyze your energy patterns before, during, and after sessions</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-toggle">
+                            <input type="checkbox" id="enable-sound" onchange="toggleSoundFeature(this.checked)">
+                            <label for="enable-sound" class="toggle-label">
+                                <span class="feature-title">
+                                    Background Soundscapes
+                                    <span id="sound-status" class="feature-status disabled">DISABLED</span>
+                                </span>
+                                <span class="feature-description">Play ambient sounds during focus sessions to maintain concentration</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="feature-info">
+                    <p><strong>Note:</strong> These settings are saved automatically and will apply to all your future timer sessions. You can change them at any time.</p>
+                </div>
+            </div>
         </div>
         
         <!-- Privacy Policy Tab -->
@@ -359,7 +602,7 @@
 
             <div class="section">
                 <h3>Accessibility Commitment</h3>
-                <p>DeepFlow is designed with neurodivergent users in mind. We are committed to providing an accessible experience for all users, in alignment with the Disability Discrimination Act 1992 and <a href="{{ url_for('privacy_user') }}">Privacy Policy</a>.</p>
+                <p>DeepFlow is designed with neurodivergent users in mind. We are committed to providing an accessible experience for all users, in alignment with the Disability Discrimination Act 1992 and <a href="{{ url_for('privacy') }}">Privacy Policy</a>.</p>
                 <p>Our accessibility features include:</p>
                 <ul>
                     <li>OpenDyslexic font support for improved readability</li>
@@ -556,7 +799,389 @@
             if (currentCountry) {
                 updateCountrySelection(currentCountry);
             }
+            
+            // Load saved advanced features settings
+            loadAdvancedFeaturesSettings();
         });
+
+        // Advanced Settings Toggle Functions
+        function toggleCheckinFeature(enabled) {
+            console.log('Mid-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
+            
+            // Update status indicator immediately for responsive feel
+            updateFeatureStatus('checkin-status', enabled);
+            
+            // Show confirmation toast
+            showToast(
+                enabled ? 'Mid-Session Energy Check-In enabled! You\'ll receive optional energy check prompts during long sessions.' 
+                       : 'Mid-Session Energy Check-In disabled. No mid-session prompts will appear.',
+                enabled ? 'success' : 'info'
+            );
+            
+            // Update backend preferences
+            updatePreferenceBackend('enable_checkin', enabled);
+            
+            if (enabled) {
+                enableMidSessionCheckin();
+            } else {
+                disableMidSessionCheckin();
+            }
+        }
+
+        function toggleReentryFeature(enabled) {
+            console.log('Post-Session Re-Entry:', enabled ? 'Enabled' : 'Disabled');
+            
+            // Update status indicator immediately for responsive feel
+            updateFeatureStatus('reentry-status', enabled);
+            
+            // Show confirmation toast
+            showToast(
+                enabled ? 'Post-Session Re-Entry enabled! Gentle re-entry tools will be available after your sessions.' 
+                       : 'Post-Session Re-Entry disabled. No re-entry tools will be shown.',
+                enabled ? 'success' : 'info'
+            );
+            
+            // Update backend preferences
+            updatePreferenceBackend('enable_reentry', enabled);
+            
+            if (enabled) {
+                enablePostSessionReentry();
+            } else {
+                disablePostSessionReentry();
+            }
+        }
+
+        function toggleEnergyLogFeature(enabled) {
+            console.log('Energy Level Tracking:', enabled ? 'Enabled' : 'Disabled');
+            
+            // Update status indicator immediately for responsive feel
+            updateFeatureStatus('energy-log-status', enabled);
+            
+            // Show confirmation toast
+            showToast(
+                enabled ? 'Energy Level Tracking enabled! You\'ll be prompted to log your energy before and after sessions.' 
+                       : 'Energy Level Tracking disabled. Timers will start and stop directly without energy prompts.',
+                enabled ? 'success' : 'info'
+            );
+            
+            // Update backend preferences
+            updatePreferenceBackend('enable_energy_log', enabled);
+            
+            if (enabled) {
+                enableEnergyTracking();
+            } else {
+                disableEnergyTracking();
+            }
+        }
+
+        function toggleSoundFeature(enabled) {
+            console.log('Background Soundscapes:', enabled ? 'Enabled' : 'Disabled');
+            
+            // Update status indicator immediately for responsive feel
+            updateFeatureStatus('sound-status', enabled);
+            
+            // Show confirmation toast
+            showToast(
+                enabled ? 'Background Soundscapes enabled! Ambient sounds will be available during your focus sessions.' 
+                       : 'Background Soundscapes disabled. No ambient sounds will play during sessions.',
+                enabled ? 'success' : 'info'
+            );
+            
+            // Update backend preferences
+            updatePreferenceBackend('enable_sound', enabled);
+            
+            if (enabled) {
+                enableBackgroundSounds();
+            } else {
+                disableBackgroundSounds();
+            }
+        }
+
+        // Helper function to update feature status indicators
+        function updateFeatureStatus(statusId, enabled) {
+            const statusElement = document.getElementById(statusId);
+            if (statusElement) {
+                statusElement.textContent = enabled ? 'ENABLED' : 'DISABLED';
+                statusElement.className = enabled ? 'feature-status enabled' : 'feature-status disabled';
+            }
+        }
+
+        // Toast notification functions
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            // Choose appropriate icon based on type
+            let icon = '';
+            switch (type) {
+                case 'success':
+                    icon = '<i class="fas fa-check-circle"></i>';
+                    break;
+                case 'error':
+                    icon = '<i class="fas fa-exclamation-circle"></i>';
+                    break;
+                case 'warning':
+                    icon = '<i class="fas fa-exclamation-triangle"></i>';
+                    break;
+                case 'info':
+                default:
+                    icon = '<i class="fas fa-info-circle"></i>';
+                    break;
+            }
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+
+            // Auto-remove after duration
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (container.contains(toast)) {
+                        container.removeChild(toast);
+                    }
+                }, 300);
+            }, duration);
+        }
+
+        // Function to update preference in backend
+        function updatePreferenceBackend(preferenceKey, enabled) {
+            const preferences = {};
+            preferences[preferenceKey] = enabled;
+            
+            fetch('/update_user_preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(preferences)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success confirmation
+                    showToast('Settings saved successfully!', 'success', 2000);
+                } else {
+                    console.error('Failed to update preference:', data.error);
+                    showToast('Failed to save settings. Please try again.', 'error');
+                    
+                    // Revert toggle and status if backend update failed
+                    revertFeatureToggle(preferenceKey, !enabled);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating preference:', error);
+                showToast('Connection error. Settings may not be saved.', 'error');
+                
+                // Revert toggle and status if request failed
+                revertFeatureToggle(preferenceKey, !enabled);
+            });
+        }
+
+        // Helper function to revert feature toggle and status
+        function revertFeatureToggle(preferenceKey, originalState) {
+            // Find the correct toggle element
+            const featureMap = {
+                'enable_checkin': { toggleId: 'enable-checkin', statusId: 'checkin-status' },
+                'enable_reentry': { toggleId: 'enable-reentry', statusId: 'reentry-status' },
+                'enable_energy_log': { toggleId: 'enable-energy-log', statusId: 'energy-log-status' },
+                'enable_sound': { toggleId: 'enable-sound', statusId: 'sound-status' }
+            };
+
+            const feature = featureMap[preferenceKey];
+            if (feature) {
+                const toggle = document.getElementById(feature.toggleId);
+                if (toggle) {
+                    toggle.checked = originalState;
+                }
+                
+                // Update status indicator
+                updateFeatureStatus(feature.statusId, originalState);
+            }
+        }
+
+        // Feature control functions
+        function enableMidSessionCheckin() {
+            window.midSessionCheckinEnabled = true;
+        }
+
+        function disableMidSessionCheckin() {
+            window.midSessionCheckinEnabled = false;
+        }
+
+        function enablePostSessionReentry() {
+            window.postSessionReentryEnabled = true;
+        }
+
+        function disablePostSessionReentry() {
+            window.postSessionReentryEnabled = false;
+        }
+
+        function enableEnergyTracking() {
+            window.energyTrackingEnabled = true;
+            // Show energy-related UI elements on dashboard
+            const energyElements = document.querySelectorAll('.energy-tracking');
+            energyElements.forEach(el => el.style.display = 'block');
+        }
+
+        function disableEnergyTracking() {
+            window.energyTrackingEnabled = false;
+            // Hide energy-related UI elements on dashboard
+            const energyElements = document.querySelectorAll('.energy-tracking');
+            energyElements.forEach(el => el.style.display = 'none');
+        }
+
+        function enableBackgroundSounds() {
+            window.backgroundSoundsEnabled = true;
+            if (window.soundManager) {
+                window.soundManager.enable();
+            }
+        }
+
+        function disableBackgroundSounds() {
+            window.backgroundSoundsEnabled = false;
+            if (window.soundManager) {
+                window.soundManager.disable();
+            }
+        }
+
+        // Load advanced features settings from backend
+        function loadAdvancedFeaturesSettings() {
+            fetch('/get_user_preferences')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.preferences) {
+                        const prefs = data.preferences;
+                        
+                        // Set checkbox states based on backend preferences
+                        const checkinCheckbox = document.getElementById('enable-checkin');
+                        const reentryCheckbox = document.getElementById('enable-reentry');
+                        const energyLogCheckbox = document.getElementById('enable-energy-log');
+                        const soundCheckbox = document.getElementById('enable-sound');
+
+                        if (checkinCheckbox) {
+                            checkinCheckbox.checked = prefs.enable_checkin;
+                            updateFeatureStatus('checkin-status', prefs.enable_checkin);
+                            // Set the feature state without showing toast
+                            if (prefs.enable_checkin) {
+                                enableMidSessionCheckin();
+                            } else {
+                                disableMidSessionCheckin();
+                            }
+                        }
+                        if (reentryCheckbox) {
+                            reentryCheckbox.checked = prefs.enable_reentry;
+                            updateFeatureStatus('reentry-status', prefs.enable_reentry);
+                            // Set the feature state without showing toast
+                            if (prefs.enable_reentry) {
+                                enablePostSessionReentry();
+                            } else {
+                                disablePostSessionReentry();
+                            }
+                        }
+                        if (energyLogCheckbox) {
+                            energyLogCheckbox.checked = prefs.enable_energy_log;
+                            updateFeatureStatus('energy-log-status', prefs.enable_energy_log);
+                            // Set the feature state without showing toast
+                            if (prefs.enable_energy_log) {
+                                enableEnergyTracking();
+                            } else {
+                                disableEnergyTracking();
+                            }
+                        }
+                        if (soundCheckbox) {
+                            soundCheckbox.checked = prefs.enable_sound;
+                            updateFeatureStatus('sound-status', prefs.enable_sound);
+                            // Set the feature state without showing toast
+                            if (prefs.enable_sound) {
+                                enableBackgroundSounds();
+                            } else {
+                                disableBackgroundSounds();
+                            }
+                        }
+
+                        console.log('Advanced features settings loaded from backend:', prefs);
+                    } else {
+                        console.error('Failed to load preferences from backend:', data.error);
+                        // Fallback to localStorage if backend fails
+                        loadSettingsFromLocalStorage();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching preferences from backend:', error);
+                    // Fallback to localStorage if backend fails
+                    loadSettingsFromLocalStorage();
+                });
+        }
+
+        // Fallback function to load from localStorage
+        function loadSettingsFromLocalStorage() {
+            const checkinEnabled = localStorage.getItem('enableCheckin') !== 'false';
+            const reentryEnabled = localStorage.getItem('enableReentry') !== 'false';
+            const energyLogEnabled = localStorage.getItem('enableEnergyLog') !== 'false';
+            const soundEnabled = localStorage.getItem('enableSound') === 'true';
+
+            // Set checkbox states
+            const checkinCheckbox = document.getElementById('enable-checkin');
+            const reentryCheckbox = document.getElementById('enable-reentry');
+            const energyLogCheckbox = document.getElementById('enable-energy-log');
+            const soundCheckbox = document.getElementById('enable-sound');
+
+            if (checkinCheckbox) {
+                checkinCheckbox.checked = checkinEnabled;
+                updateFeatureStatus('checkin-status', checkinEnabled);
+                // Set the feature state without showing toast
+                if (checkinEnabled) {
+                    enableMidSessionCheckin();
+                } else {
+                    disableMidSessionCheckin();
+                }
+            }
+            if (reentryCheckbox) {
+                reentryCheckbox.checked = reentryEnabled;
+                updateFeatureStatus('reentry-status', reentryEnabled);
+                // Set the feature state without showing toast
+                if (reentryEnabled) {
+                    enablePostSessionReentry();
+                } else {
+                    disablePostSessionReentry();
+                }
+            }
+            if (energyLogCheckbox) {
+                energyLogCheckbox.checked = energyLogEnabled;
+                updateFeatureStatus('energy-log-status', energyLogEnabled);
+                // Set the feature state without showing toast
+                if (energyLogEnabled) {
+                    enableEnergyTracking();
+                } else {
+                    disableEnergyTracking();
+                }
+            }
+            if (soundCheckbox) {
+                soundCheckbox.checked = soundEnabled;
+                updateFeatureStatus('sound-status', soundEnabled);
+                // Set the feature state without showing toast
+                if (soundEnabled) {
+                    enableBackgroundSounds();
+                } else {
+                    disableBackgroundSounds();
+                }
+            }
+        }
     </script>
+
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container"></div>
 </body>
 </html>
