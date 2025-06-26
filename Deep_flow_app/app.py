@@ -762,17 +762,33 @@ def get_user_feature_preferences(user_id):
             CREATE TABLE IF NOT EXISTS user_preferences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER UNIQUE NOT NULL,
-                enable_checkin BOOLEAN DEFAULT 1,
-                enable_reentry BOOLEAN DEFAULT 1,
+                enable_start_checkin BOOLEAN DEFAULT 1,
+                enable_mid_checkin BOOLEAN DEFAULT 1,
+                enable_end_checkin BOOLEAN DEFAULT 1,
                 enable_energy_log BOOLEAN DEFAULT 1,
                 enable_sound BOOLEAN DEFAULT 0,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         """)
         
+        # Add new columns if they don't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE user_preferences ADD COLUMN enable_start_checkin BOOLEAN DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE user_preferences ADD COLUMN enable_mid_checkin BOOLEAN DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE user_preferences ADD COLUMN enable_end_checkin BOOLEAN DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+        
         # Get user preferences
         cursor.execute("""
-            SELECT enable_checkin, enable_reentry, enable_energy_log, enable_sound
+            SELECT enable_start_checkin, enable_mid_checkin, enable_end_checkin, 
+                   enable_energy_log, enable_sound
             FROM user_preferences
             WHERE user_id = ?
         """, (user_id,))
@@ -782,27 +798,30 @@ def get_user_feature_preferences(user_id):
         if not prefs:
             # Create default preferences for new user
             cursor.execute("""
-                INSERT INTO user_preferences (user_id, enable_checkin, enable_reentry, enable_energy_log, enable_sound)
-                VALUES (?, ?, ?, ?, ?)
-            """, (user_id, 1, 1, 1, 0))
+                INSERT INTO user_preferences (user_id, enable_start_checkin, enable_mid_checkin, 
+                                            enable_end_checkin, enable_energy_log, enable_sound)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (user_id, 1, 1, 1, 1, 0))
             conn.commit()
-            prefs = (1, 1, 1, 0)  # Default values
+            prefs = (1, 1, 1, 1, 0)  # Default values
         
         conn.close()
         
         return {
-            "enable_checkin": bool(prefs[0]),
-            "enable_reentry": bool(prefs[1]),
-            "enable_energy_log": bool(prefs[2]),
-            "enable_sound": bool(prefs[3])
+            "enable_start_checkin": bool(prefs[0]),
+            "enable_mid_checkin": bool(prefs[1]),
+            "enable_end_checkin": bool(prefs[2]),
+            "enable_energy_log": bool(prefs[3]),
+            "enable_sound": bool(prefs[4])
         }
         
     except sqlite3.Error as e:
         logger.error("Error getting user preferences: %s", str(e))
         # Return defaults if there's an error
         return {
-            "enable_checkin": True,
-            "enable_reentry": True,
+            "enable_start_checkin": True,
+            "enable_mid_checkin": True,
+            "enable_end_checkin": True,
             "enable_energy_log": True,
             "enable_sound": False
         }
@@ -831,8 +850,9 @@ def get_user_preferences():
             CREATE TABLE IF NOT EXISTS user_preferences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER UNIQUE NOT NULL,
-                enable_checkin BOOLEAN DEFAULT 1,
-                enable_reentry BOOLEAN DEFAULT 1,
+                enable_start_checkin BOOLEAN DEFAULT 1,
+                enable_mid_checkin BOOLEAN DEFAULT 1,
+                enable_end_checkin BOOLEAN DEFAULT 1,
                 enable_energy_log BOOLEAN DEFAULT 1,
                 enable_sound BOOLEAN DEFAULT 0,
                 FOREIGN KEY (user_id) REFERENCES users (id)
@@ -841,7 +861,8 @@ def get_user_preferences():
         
         # Get user preferences
         cursor.execute("""
-            SELECT enable_checkin, enable_reentry, enable_energy_log, enable_sound
+            SELECT enable_start_checkin, enable_mid_checkin, enable_end_checkin,
+                   enable_energy_log, enable_sound
             FROM user_preferences
             WHERE user_id = ?
         """, (session['user_id'],))
@@ -851,21 +872,23 @@ def get_user_preferences():
         if not prefs:
             # Create default preferences for new user
             cursor.execute("""
-                INSERT INTO user_preferences (user_id, enable_checkin, enable_reentry, enable_energy_log, enable_sound)
-                VALUES (?, ?, ?, ?, ?)
-            """, (session['user_id'], 1, 1, 1, 0))
+                INSERT INTO user_preferences (user_id, enable_start_checkin, enable_mid_checkin,
+                                            enable_end_checkin, enable_energy_log, enable_sound)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (session['user_id'], 1, 1, 1, 1, 0))
             conn.commit()
-            prefs = (1, 1, 1, 0)  # Default values
+            prefs = (1, 1, 1, 1, 0)  # Default values
         
         conn.close()
         
         return {
             "success": True,
             "preferences": {
-                "enable_checkin": bool(prefs[0]),
-                "enable_reentry": bool(prefs[1]),
-                "enable_energy_log": bool(prefs[2]),
-                "enable_sound": bool(prefs[3])
+                "enable_start_checkin": bool(prefs[0]),
+                "enable_mid_checkin": bool(prefs[1]),
+                "enable_end_checkin": bool(prefs[2]),
+                "enable_energy_log": bool(prefs[3]),
+                "enable_sound": bool(prefs[4])
             }
         }, 200
         
@@ -883,8 +906,9 @@ def update_user_preferences():
     if request.is_json:
         data = request.get_json()
         
-        enable_checkin = data.get("enable_checkin", True)
-        enable_reentry = data.get("enable_reentry", True)
+        enable_start_checkin = data.get("enable_start_checkin", True)
+        enable_mid_checkin = data.get("enable_mid_checkin", True)
+        enable_end_checkin = data.get("enable_end_checkin", True)
         enable_energy_log = data.get("enable_energy_log", True)
         enable_sound = data.get("enable_sound", False)
         
@@ -895,9 +919,11 @@ def update_user_preferences():
             # Update or insert preferences
             cursor.execute("""
                 INSERT OR REPLACE INTO user_preferences 
-                (user_id, enable_checkin, enable_reentry, enable_energy_log, enable_sound)
-                VALUES (?, ?, ?, ?, ?)
-            """, (session['user_id'], enable_checkin, enable_reentry, enable_energy_log, enable_sound))
+                (user_id, enable_start_checkin, enable_mid_checkin, enable_end_checkin,
+                 enable_energy_log, enable_sound)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (session['user_id'], enable_start_checkin, enable_mid_checkin, enable_end_checkin,
+                  enable_energy_log, enable_sound))
             
             conn.commit()
             conn.close()
@@ -1039,22 +1065,32 @@ def log_energy():
     if 'user_id' not in session:
         return {"error": "Not authenticated"}, 401
     
-    # Check if energy logging is enabled for this user
-    if not is_feature_enabled(session['user_id'], 'enable_energy_log'):
-        return {"error": "Energy logging is disabled"}, 403
-    
     if request.is_json:
         data = request.get_json()
         timer_id = data.get("timer_id")
-        stage = data.get("stage")  # 'start' or 'end'
+        stage = data.get("stage")  # 'start', 'mid', or 'end'
         energy_level = data.get("energy_level")  # 1-10
         focus_level = data.get("focus_level")  # 1-10 (optional)
         
         if not all([timer_id, stage, energy_level]):
             return {"error": "Timer ID, stage, and energy level are required"}, 400
         
-        if stage not in ['start', 'end']:
-            return {"error": "Stage must be 'start' or 'end'"}, 400
+        if stage not in ['start', 'mid', 'end']:
+            return {"error": "Stage must be 'start', 'mid', or 'end'"}, 400
+        
+        # Check if the specific type of check-in is enabled for this user
+        prefs = get_user_feature_preferences(session['user_id'])
+        stage_enabled = False
+        
+        if stage == 'start' and prefs.get('enable_start_checkin', True):
+            stage_enabled = True
+        elif stage == 'mid' and prefs.get('enable_mid_checkin', True):
+            stage_enabled = True
+        elif stage == 'end' and prefs.get('enable_end_checkin', True):
+            stage_enabled = True
+        
+        if not stage_enabled:
+            return {"error": f"{stage.capitalize()} check-in is disabled for this user"}, 403
         
         try:
             energy_level = int(energy_level)
@@ -1337,6 +1373,55 @@ def stop_timer_route(timer_id):
         logger.error("Error stopping timer: %s", e)
         return {"success": False, "error": "Database error"}, 500
 
+
+@app.route("/get_timer_state/<int:timer_id>", methods=["GET"])
+def get_timer_state(timer_id):
+    """Get the current state of a timer including elapsed time and duration"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, name, duration, start_time, elapsed_time, is_running
+            FROM timers
+            WHERE id = ? AND user_id = ?
+        """, (timer_id, session['user_id']))
+        
+        timer_data = cursor.fetchone()
+        conn.close()
+        
+        if not timer_data:
+            return {"error": "Timer not found"}, 404
+        
+        timer_id, name, duration, start_time, elapsed_time, is_running = timer_data
+        
+        # Calculate current elapsed time if timer is running
+        current_elapsed = elapsed_time or 0
+        if is_running == 1 and start_time:  # Timer is running
+            start_time_obj = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+            current_time = datetime.now()
+            session_elapsed = int((current_time - start_time_obj).total_seconds() * 1000)
+            current_elapsed += session_elapsed
+        
+        return {
+            "success": True,
+            "timer": {
+                "id": timer_id,
+                "name": name,
+                "duration": duration,  # Duration in seconds
+                "elapsed_time": current_elapsed,  # Elapsed time in milliseconds
+                "is_running": is_running,
+                "remaining_time": max(0, (duration * 1000) - current_elapsed)  # Remaining time in milliseconds
+            }
+        }, 200
+        
+    except sqlite3.Error as e:
+        logger.error("Error getting timer state: %s", e)
+        return {"error": "Database error"}, 500
+        
 
 # Energy Insights API Endpoints
 

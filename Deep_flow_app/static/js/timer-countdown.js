@@ -107,6 +107,67 @@ document.addEventListener('DOMContentLoaded', function() {
         // Calculate end time based on current time and remaining milliseconds
         const endTime = new Date(Date.now() + remainingMs);
         
+        // Get timer state to determine original duration for mid-session check-in logic
+        fetch(`/get_timer_state/${timerId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const totalDurationMs = data.timer.duration * 1000; // Convert seconds to milliseconds
+                    const elapsedMs = totalDurationMs - remainingMs;
+                    const midPointMs = totalDurationMs / 2;
+                    
+                    // Track if mid-session check-in has been shown (check if we've passed midpoint)
+                    let midSessionShown = elapsedMs >= midPointMs;
+                    
+                    // Update immediately
+                    updateCountdownDisplay(countdownEl, endTime, timerId);
+                    
+                    // Set interval to update countdown
+                    window.timerCountdowns[timerId] = setInterval(function() {
+                        const isComplete = updateCountdownDisplay(countdownEl, endTime, timerId);
+                        const currentRemainingMs = endTime.getTime() - Date.now();
+                        const currentElapsedMs = totalDurationMs - currentRemainingMs;
+                        
+                        // Check for mid-session check-in (only for sessions longer than 30 minutes)
+                        if (!midSessionShown && totalDurationMs >= 1800000 && currentElapsedMs >= midPointMs) {
+                            midSessionShown = true;
+                            console.log(`Timer ${timerId} reached midpoint. Showing mid-session check-in.`);
+                            if (window.showEnergyCheckinModal) {
+                                window.showEnergyCheckinModal(timerId, 'mid');
+                            }
+                        }
+                        
+                        // If countdown is complete, clear interval and show energy check-in
+                        if (isComplete) {
+                            clearInterval(window.timerCountdowns[timerId]);
+                            delete window.timerCountdowns[timerId];
+                            
+                            // Show the energy check-in modal instead of reloading
+                            console.log(`Timer ${timerId} finished. Showing energy check-in modal.`);
+                            if (window.showEnergyCheckinModal) {
+                                window.showEnergyCheckinModal(timerId, 'end');
+                            } else {
+                                console.error('showEnergyCheckinModal function not found. Reloading as a fallback.');
+                                window.location.reload();
+                            }
+                        }
+                    }, 1000);
+                } else {
+                    // Fallback to simple countdown without mid-session check-in
+                    startSimpleCountdown(timerId, remainingMs, endTime, countdownEl);
+                }
+            })
+            .catch(error => {
+                console.error(`Error getting timer state for mid-session logic:`, error);
+                // Fallback to simple countdown without mid-session check-in
+                startSimpleCountdown(timerId, remainingMs, endTime, countdownEl);
+            });
+    }
+    
+    /**
+     * Fallback simple countdown without mid-session check-in
+     */
+    function startSimpleCountdown(timerId, remainingMs, endTime, countdownEl) {
         // Update immediately
         updateCountdownDisplay(countdownEl, endTime, timerId);
         
@@ -177,6 +238,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Calculate end time based on start time and duration
         const endTime = new Date(startTime.getTime() + (durationSeconds * 1000));
+        const midTime = new Date(startTime.getTime() + (durationSeconds * 500)); // Halfway point
+        
+        // Track if mid-session check-in has been shown
+        let midSessionShown = false;
         
         // Update immediately
         updateCountdownDisplay(countdownEl, endTime, timerId);
@@ -184,6 +249,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set interval to update countdown
         window.timerCountdowns[timerId] = setInterval(function() {
             const isComplete = updateCountdownDisplay(countdownEl, endTime, timerId);
+            const currentTime = new Date();
+            
+            // Check for mid-session check-in (only for sessions longer than 30 minutes)
+            if (!midSessionShown && durationSeconds >= 1800 && currentTime >= midTime) {
+                midSessionShown = true;
+                console.log(`Timer ${timerId} reached midpoint. Showing mid-session check-in.`);
+                if (window.showEnergyCheckinModal) {
+                    window.showEnergyCheckinModal(timerId, 'mid');
+                }
+            }
             
             // If countdown is complete, clear interval and show energy check-in
             if (isComplete) {

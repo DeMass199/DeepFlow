@@ -490,17 +490,6 @@
             }
         }
 
-        function toggleReentryFeature(enabled) {
-            localStorage.setItem('enableReentry', enabled);
-            console.log('Post-Session Re-Entry:', enabled ? 'Enabled' : 'Disabled');
-            
-            if (enabled) {
-                enablePostSessionReentry();
-            } else {
-                disablePostSessionReentry();
-            }
-        }
-
         function toggleEnergyLogFeature(enabled) {
             localStorage.setItem('enableEnergyLog', enabled);
             console.log('Energy Level Tracking:', enabled ? 'Enabled' : 'Disabled');
@@ -532,16 +521,6 @@
         function disableMidSessionCheckin() {
             // Logic to disable mid-session check-in prompts
             window.midSessionCheckinEnabled = false;
-        }
-
-        function enablePostSessionReentry() {
-            // Logic to enable post-session re-entry mode
-            window.postSessionReentryEnabled = true;
-        }
-
-        function disablePostSessionReentry() {
-            // Logic to disable post-session re-entry mode
-            window.postSessionReentryEnabled = false;
         }
 
         function enableEnergyTracking() {
@@ -588,7 +567,6 @@
                         // Apply the settings globally
                         window.userPreferences = prefs;
                         toggleCheckinFeature(prefs.enable_checkin);
-                        toggleReentryFeature(prefs.enable_reentry);
                         toggleEnergyLogFeature(prefs.enable_energy_log);
                         toggleSoundFeature(prefs.enable_sound);
                         
@@ -609,20 +587,17 @@
         // Fallback function to load from localStorage
         function loadSettingsFromLocalStorage() {
             const checkinEnabled = localStorage.getItem('enableCheckin') !== 'false';
-            const reentryEnabled = localStorage.getItem('enableReentry') !== 'false';
             const energyLogEnabled = localStorage.getItem('enableEnergyLog') !== 'false';
             const soundEnabled = localStorage.getItem('enableSound') === 'true';
 
             // Set global preferences and apply settings
             window.userPreferences = {
                 enable_checkin: checkinEnabled,
-                enable_reentry: reentryEnabled,
                 enable_energy_log: energyLogEnabled,
                 enable_sound: soundEnabled
             };
             
             toggleCheckinFeature(checkinEnabled);
-            toggleReentryFeature(reentryEnabled);
             toggleEnergyLogFeature(energyLogEnabled);
             toggleSoundFeature(soundEnabled);
         }

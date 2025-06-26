@@ -26,13 +26,41 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     window.showEnergyCheckinModal = function(timerId, stage) {
-        if (energyCheckinModal) {
-            energyCheckinModal.style.display = 'block';
-            energyCheckinModal.dataset.timerId = timerId;
-            energyCheckinModal.dataset.stage = stage;
-        } else {
-            console.error('Energy check-in modal not found!');
-        }
+        // Check user preferences before showing modal
+        checkUserPreferences().then(prefs => {
+            let shouldShow = false;
+            
+            if (stage === 'start' && prefs.enable_start_checkin) {
+                shouldShow = true;
+            } else if (stage === 'mid' && prefs.enable_mid_checkin) {
+                shouldShow = true;
+            } else if (stage === 'end' && prefs.enable_end_checkin) {
+                shouldShow = true;
+            }
+            
+            if (shouldShow && energyCheckinModal) {
+                energyCheckinModal.style.display = 'block';
+                energyCheckinModal.dataset.timerId = timerId;
+                energyCheckinModal.dataset.stage = stage;
+            } else if (!shouldShow) {
+                // If check-in is disabled, perform the timer action directly
+                if (stage === 'start') {
+                    startTimerDirectly(timerId);
+                } else if (stage === 'end') {
+                    stopTimerDirectly(timerId);
+                }
+            } else {
+                console.error('Energy check-in modal not found!');
+            }
+        }).catch(error => {
+            console.error('Error checking user preferences:', error);
+            // Fallback to showing modal if preferences check fails
+            if (energyCheckinModal) {
+                energyCheckinModal.style.display = 'block';
+                energyCheckinModal.dataset.timerId = timerId;
+                energyCheckinModal.dataset.stage = stage;
+            }
+        });
     };
 
     if (submitEnergyButton) {
@@ -71,13 +99,8 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function() {
             const timerId = this.dataset.timerId;
             
-            // Check if energy logging is enabled before showing modal
-            if (window.userPreferences && window.userPreferences.enable_energy_log) {
-                showEnergyCheckinModal(timerId, 'start');
-            } else {
-                // If energy logging is disabled, start timer directly
-                startTimerDirectly(timerId);
-            }
+            // Always check for start check-in preferences (not general energy logging)
+            showEnergyCheckinModal(timerId, 'start');
         });
     });
 
@@ -85,13 +108,8 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function() {
             const timerId = this.dataset.timerId;
             
-            // Check if energy logging is enabled before showing modal
-            if (window.userPreferences && window.userPreferences.enable_energy_log) {
-                showEnergyCheckinModal(timerId, 'end');
-            } else {
-                // If energy logging is disabled, stop timer directly
-                stopTimerDirectly(timerId);
-            }
+            // Always check for end check-in preferences (not general energy logging)
+            showEnergyCheckinModal(timerId, 'end');
         });
     });
 
@@ -154,6 +172,34 @@ function stopTimerDirectly(timerId) {
         console.error('Error stopping timer:', error);
         alert('Failed to stop timer. Please try again.');
     });
+}
+
+// Function to check user preferences from backend
+function checkUserPreferences() {
+    return fetch('/get_user_preferences')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Store preferences globally for other functions to use
+                window.userPreferences = data.preferences;
+                return data.preferences;
+            } else {
+                throw new Error('Failed to get user preferences');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching user preferences:', error);
+            // Return default preferences if fetch fails
+            const defaults = {
+                enable_start_checkin: true,
+                enable_mid_checkin: true,
+                enable_end_checkin: true,
+                enable_energy_log: true,
+                enable_sound: false
+            };
+            window.userPreferences = defaults;
+            return defaults;
+        });
 }
 
 // Flow Shelf Functions

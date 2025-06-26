@@ -488,26 +488,39 @@
                 <div class="advanced-features-grid">
                     <div class="feature-card">
                         <div class="feature-toggle">
-                            <input type="checkbox" id="enable-checkin" onchange="toggleCheckinFeature(this.checked)" checked>
-                            <label for="enable-checkin" class="toggle-label">
+                            <input type="checkbox" id="enable-start-checkin" onchange="toggleStartCheckinFeature(this.checked)" checked>
+                            <label for="enable-start-checkin" class="toggle-label">
                                 <span class="feature-title">
-                                    Mid-Session Energy Check-In
-                                    <span id="checkin-status" class="feature-status enabled">ENABLED</span>
+                                    Start-Session Energy Check-In
+                                    <span id="start-checkin-status" class="feature-status enabled">ENABLED</span>
                                 </span>
-                                <span class="feature-description">Optional prompts during long sessions to track your energy levels</span>
+                                <span class="feature-description">Get prompted to log your energy level before starting a focus session</span>
                             </label>
                         </div>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-toggle">
-                            <input type="checkbox" id="enable-reentry" onchange="toggleReentryFeature(this.checked)" checked>
-                            <label for="enable-reentry" class="toggle-label">
+                            <input type="checkbox" id="enable-mid-checkin" onchange="toggleMidCheckinFeature(this.checked)" checked>
+                            <label for="enable-mid-checkin" class="toggle-label">
                                 <span class="feature-title">
-                                    Post-Session Re-Entry
-                                    <span id="reentry-status" class="feature-status enabled">ENABLED</span>
+                                    Mid-Session Energy Check-In
+                                    <span id="mid-checkin-status" class="feature-status enabled">ENABLED</span>
                                 </span>
-                                <span class="feature-description">Gentle tools to help you re-enter focus after breaks or session ends</span>
+                                <span class="feature-description">Optional prompts at the halfway point of long sessions to track your energy levels</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-toggle">
+                            <input type="checkbox" id="enable-end-checkin" onchange="toggleEndCheckinFeature(this.checked)" checked>
+                            <label for="enable-end-checkin" class="toggle-label">
+                                <span class="feature-title">
+                                    End-Session Energy Check-In
+                                    <span id="end-checkin-status" class="feature-status enabled">ENABLED</span>
+                                </span>
+                                <span class="feature-description">Get prompted to log your energy level after completing a focus session</span>
                             </label>
                         </div>
                     </div>
@@ -805,21 +818,44 @@
         });
 
         // Advanced Settings Toggle Functions
-        function toggleCheckinFeature(enabled) {
-            console.log('Mid-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
+        function toggleStartCheckinFeature(enabled) {
+            console.log('Start-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
             
             // Update status indicator immediately for responsive feel
-            updateFeatureStatus('checkin-status', enabled);
+            updateFeatureStatus('start-checkin-status', enabled);
             
             // Show confirmation toast
             showToast(
-                enabled ? 'Mid-Session Energy Check-In enabled! You\'ll receive optional energy check prompts during long sessions.' 
-                       : 'Mid-Session Energy Check-In disabled. No mid-session prompts will appear.',
+                enabled ? 'Start-Session Energy Check-In enabled! You\'ll be prompted to log your energy before starting sessions.' 
+                       : 'Start-Session Energy Check-In disabled. Timers will start immediately without energy prompts.',
                 enabled ? 'success' : 'info'
             );
             
             // Update backend preferences
-            updatePreferenceBackend('enable_checkin', enabled);
+            updatePreferenceBackend('enable_start_checkin', enabled);
+            
+            if (enabled) {
+                enableStartCheckin();
+            } else {
+                disableStartCheckin();
+            }
+        }
+
+        function toggleMidCheckinFeature(enabled) {
+            console.log('Mid-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
+            
+            // Update status indicator immediately for responsive feel
+            updateFeatureStatus('mid-checkin-status', enabled);
+            
+            // Show confirmation toast
+            showToast(
+                enabled ? 'Mid-Session Energy Check-In enabled! You\'ll receive optional energy check prompts during long sessions.' 
+                       : 'Mid-Session Energy Check-In disabled. No mid-session prompts will appear during timers.',
+                enabled ? 'success' : 'info'
+            );
+            
+            // Update backend preferences
+            updatePreferenceBackend('enable_mid_checkin', enabled);
             
             if (enabled) {
                 enableMidSessionCheckin();
@@ -828,26 +864,26 @@
             }
         }
 
-        function toggleReentryFeature(enabled) {
-            console.log('Post-Session Re-Entry:', enabled ? 'Enabled' : 'Disabled');
+        function toggleEndCheckinFeature(enabled) {
+            console.log('End-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
             
             // Update status indicator immediately for responsive feel
-            updateFeatureStatus('reentry-status', enabled);
+            updateFeatureStatus('end-checkin-status', enabled);
             
             // Show confirmation toast
             showToast(
-                enabled ? 'Post-Session Re-Entry enabled! Gentle re-entry tools will be available after your sessions.' 
-                       : 'Post-Session Re-Entry disabled. No re-entry tools will be shown.',
+                enabled ? 'End-Session Energy Check-In enabled! You\'ll be prompted to log your energy after completing sessions.' 
+                       : 'End-Session Energy Check-In disabled. Timers will stop immediately without energy prompts.',
                 enabled ? 'success' : 'info'
             );
             
             // Update backend preferences
-            updatePreferenceBackend('enable_reentry', enabled);
+            updatePreferenceBackend('enable_end_checkin', enabled);
             
             if (enabled) {
-                enablePostSessionReentry();
+                enableEndCheckin();
             } else {
-                disablePostSessionReentry();
+                disableEndCheckin();
             }
         }
 
@@ -993,8 +1029,9 @@
         function revertFeatureToggle(preferenceKey, originalState) {
             // Find the correct toggle element
             const featureMap = {
-                'enable_checkin': { toggleId: 'enable-checkin', statusId: 'checkin-status' },
-                'enable_reentry': { toggleId: 'enable-reentry', statusId: 'reentry-status' },
+                'enable_start_checkin': { toggleId: 'enable-start-checkin', statusId: 'start-checkin-status' },
+                'enable_mid_checkin': { toggleId: 'enable-mid-checkin', statusId: 'mid-checkin-status' },
+                'enable_end_checkin': { toggleId: 'enable-end-checkin', statusId: 'end-checkin-status' },
                 'enable_energy_log': { toggleId: 'enable-energy-log', statusId: 'energy-log-status' },
                 'enable_sound': { toggleId: 'enable-sound', statusId: 'sound-status' }
             };
@@ -1012,6 +1049,14 @@
         }
 
         // Feature control functions
+        function enableStartCheckin() {
+            window.startCheckinEnabled = true;
+        }
+
+        function disableStartCheckin() {
+            window.startCheckinEnabled = false;
+        }
+
         function enableMidSessionCheckin() {
             window.midSessionCheckinEnabled = true;
         }
@@ -1020,12 +1065,12 @@
             window.midSessionCheckinEnabled = false;
         }
 
-        function enablePostSessionReentry() {
-            window.postSessionReentryEnabled = true;
+        function enableEndCheckin() {
+            window.endCheckinEnabled = true;
         }
 
-        function disablePostSessionReentry() {
-            window.postSessionReentryEnabled = false;
+        function disableEndCheckin() {
+            window.endCheckinEnabled = false;
         }
 
         function enableEnergyTracking() {
@@ -1065,29 +1110,40 @@
                         const prefs = data.preferences;
                         
                         // Set checkbox states based on backend preferences
-                        const checkinCheckbox = document.getElementById('enable-checkin');
-                        const reentryCheckbox = document.getElementById('enable-reentry');
+                        const startCheckinCheckbox = document.getElementById('enable-start-checkin');
+                        const midCheckinCheckbox = document.getElementById('enable-mid-checkin');
+                        const endCheckinCheckbox = document.getElementById('enable-end-checkin');
                         const energyLogCheckbox = document.getElementById('enable-energy-log');
                         const soundCheckbox = document.getElementById('enable-sound');
 
-                        if (checkinCheckbox) {
-                            checkinCheckbox.checked = prefs.enable_checkin;
-                            updateFeatureStatus('checkin-status', prefs.enable_checkin);
+                        if (startCheckinCheckbox) {
+                            startCheckinCheckbox.checked = prefs.enable_start_checkin;
+                            updateFeatureStatus('start-checkin-status', prefs.enable_start_checkin);
                             // Set the feature state without showing toast
-                            if (prefs.enable_checkin) {
+                            if (prefs.enable_start_checkin) {
+                                enableStartCheckin();
+                            } else {
+                                disableStartCheckin();
+                            }
+                        }
+                        if (midCheckinCheckbox) {
+                            midCheckinCheckbox.checked = prefs.enable_mid_checkin;
+                            updateFeatureStatus('mid-checkin-status', prefs.enable_mid_checkin);
+                            // Set the feature state without showing toast
+                            if (prefs.enable_mid_checkin) {
                                 enableMidSessionCheckin();
                             } else {
                                 disableMidSessionCheckin();
                             }
                         }
-                        if (reentryCheckbox) {
-                            reentryCheckbox.checked = prefs.enable_reentry;
-                            updateFeatureStatus('reentry-status', prefs.enable_reentry);
+                        if (endCheckinCheckbox) {
+                            endCheckinCheckbox.checked = prefs.enable_end_checkin;
+                            updateFeatureStatus('end-checkin-status', prefs.enable_end_checkin);
                             // Set the feature state without showing toast
-                            if (prefs.enable_reentry) {
-                                enablePostSessionReentry();
+                            if (prefs.enable_end_checkin) {
+                                enableEndCheckin();
                             } else {
-                                disablePostSessionReentry();
+                                disableEndCheckin();
                             }
                         }
                         if (energyLogCheckbox) {
@@ -1127,35 +1183,47 @@
 
         // Fallback function to load from localStorage
         function loadSettingsFromLocalStorage() {
-            const checkinEnabled = localStorage.getItem('enableCheckin') !== 'false';
-            const reentryEnabled = localStorage.getItem('enableReentry') !== 'false';
+            const startCheckinEnabled = localStorage.getItem('enableStartCheckin') !== 'false';
+            const midCheckinEnabled = localStorage.getItem('enableMidCheckin') !== 'false';
+            const endCheckinEnabled = localStorage.getItem('enableEndCheckin') !== 'false';
             const energyLogEnabled = localStorage.getItem('enableEnergyLog') !== 'false';
             const soundEnabled = localStorage.getItem('enableSound') === 'true';
 
             // Set checkbox states
-            const checkinCheckbox = document.getElementById('enable-checkin');
-            const reentryCheckbox = document.getElementById('enable-reentry');
+            const startCheckinCheckbox = document.getElementById('enable-start-checkin');
+            const midCheckinCheckbox = document.getElementById('enable-mid-checkin');
+            const endCheckinCheckbox = document.getElementById('enable-end-checkin');
             const energyLogCheckbox = document.getElementById('enable-energy-log');
             const soundCheckbox = document.getElementById('enable-sound');
 
-            if (checkinCheckbox) {
-                checkinCheckbox.checked = checkinEnabled;
-                updateFeatureStatus('checkin-status', checkinEnabled);
+            if (startCheckinCheckbox) {
+                startCheckinCheckbox.checked = startCheckinEnabled;
+                updateFeatureStatus('start-checkin-status', startCheckinEnabled);
                 // Set the feature state without showing toast
-                if (checkinEnabled) {
+                if (startCheckinEnabled) {
+                    enableStartCheckin();
+                } else {
+                    disableStartCheckin();
+                }
+            }
+            if (midCheckinCheckbox) {
+                midCheckinCheckbox.checked = midCheckinEnabled;
+                updateFeatureStatus('mid-checkin-status', midCheckinEnabled);
+                // Set the feature state without showing toast
+                if (midCheckinEnabled) {
                     enableMidSessionCheckin();
                 } else {
                     disableMidSessionCheckin();
                 }
             }
-            if (reentryCheckbox) {
-                reentryCheckbox.checked = reentryEnabled;
-                updateFeatureStatus('reentry-status', reentryEnabled);
+            if (endCheckinCheckbox) {
+                endCheckinCheckbox.checked = endCheckinEnabled;
+                updateFeatureStatus('end-checkin-status', endCheckinEnabled);
                 // Set the feature state without showing toast
-                if (reentryEnabled) {
-                    enablePostSessionReentry();
+                if (endCheckinEnabled) {
+                    enableEndCheckin();
                 } else {
-                    disablePostSessionReentry();
+                    disableEndCheckin();
                 }
             }
             if (energyLogCheckbox) {
