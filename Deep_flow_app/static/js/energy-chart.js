@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('User preferences:', preferencesData);
             
             const userCountry = preferencesData.success ? preferencesData.country : 
-                               localStorage.getItem('deepflow_country_preference') || 'US';
+                               localStorage.getItem('deepflow_country_preference') || 'AU';
             
             const timezoneInfo = preferencesData.success ? {
                 timezone: preferencesData.timezone,
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 offset: -3
             }
         };
-        return settings[country] || settings['US'];
+        return settings[country] || settings['AU'];
     }
 
     function convertToTimezone(dateString, timezoneOffset) {

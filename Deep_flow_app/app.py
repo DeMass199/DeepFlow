@@ -51,7 +51,7 @@ def get_user_timezone_offset(user_id):
         cursor = conn.cursor()
         cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (user_id,))
         result = cursor.fetchone()
-        country = result[0] if result else 'US'
+        country = result[0] if result else 'AU'
         state_province = result[1] if result and result[1] else ''
         conn.close()
         
@@ -252,14 +252,14 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                country TEXT DEFAULT 'US',
+                country TEXT DEFAULT 'AU',
                 state_province TEXT DEFAULT NULL
             )
         """)
         
         # Add country column if it doesn't exist (for existing databases)
         try:
-            cursor.execute("ALTER TABLE users ADD COLUMN country TEXT DEFAULT 'US'")
+            cursor.execute("ALTER TABLE users ADD COLUMN country TEXT DEFAULT 'AU'")
         except sqlite3.OperationalError:
             # Column already exists
             pass
@@ -1434,12 +1434,12 @@ def settings():
         cursor = conn.cursor()
         cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (session['user_id'],))
         result = cursor.fetchone()
-        current_country = result[0] if result else 'US'
+        current_country = result[0] if result else 'AU'
         current_state = result[1] if result and result[1] else ''
         conn.close()
     except sqlite3.Error as e:
         logger.error("Error fetching user location: %s", str(e))
-        current_country = 'US'
+        current_country = 'AU'
         current_state = ''
     
     if request.method == "POST":
@@ -1695,7 +1695,7 @@ def get_user_preferences():
         cursor = conn.cursor()
         cursor.execute("SELECT country, state_province FROM users WHERE id = ?", (session['user_id'],))
         result = cursor.fetchone()
-        country = result[0] if result else 'US'
+        country = result[0] if result else 'AU'
         state_province = result[1] if result and result[1] else ''
         conn.close()
         
