@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Base class for ORM models

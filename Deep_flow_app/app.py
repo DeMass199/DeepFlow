@@ -3,7 +3,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 import logging
-import json
 from datetime import datetime, timedelta, timezone
 
 # Set up logging

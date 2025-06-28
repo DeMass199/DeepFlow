@@ -20,7 +20,7 @@ def update_timers_table():
     try:
         # Check if the database file exists
         if not os.path.exists(DB_PATH):
-            logger.error(f"Database file does not exist at {DB_PATH}")
+            logger.error("Database file does not exist at %s", DB_PATH)
             return False
 
         # Connect to the database
@@ -88,7 +88,7 @@ def update_timers_table():
         return True
         
     except sqlite3.Error as e:
-        logger.error(f"Database error: {str(e)}")
+        logger.error("Database error: %s", str(e))
         if conn:
             conn.rollback()
         return False
