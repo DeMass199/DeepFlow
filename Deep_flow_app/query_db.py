@@ -1,6 +1,6 @@
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from Deep_flow_app.db import User  # Update import to match the new model name
+from Deep_flow_app.db import User, Task # Update import to match the new model name
 
 # Connect to the Deepflow database
 engine = create_engine('sqlite:///Deepflow.db')  # Consistent naming

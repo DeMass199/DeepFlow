@@ -152,19 +152,19 @@ function refreshTimerState(timerId) {
     fetch(`/get_timer_state/${timerId}`)
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
+            if (data.success && data.timer) {
                 const countdownEl = document.querySelector(`#countdown-${timerId} .time-display`);
                 if (!countdownEl) return;
                 
-                if (data.is_running === 1) {
+                if (data.timer.is_running === 1) {
                     // Timer is running - start countdown with remaining time
                     if (window.startCountdownFromRemaining) {
-                        window.startCountdownFromRemaining(timerId, data.remaining_ms);
+                        window.startCountdownFromRemaining(timerId, data.timer.remaining_time);
                     }
                 } else {
                     // Timer is paused - show remaining time without countdown
                     if (window.displayRemainingTime) {
-                        window.displayRemainingTime(countdownEl, data.remaining_ms);
+                        window.displayRemainingTime(countdownEl, data.timer.remaining_time);
                     }
                 }
             } else {

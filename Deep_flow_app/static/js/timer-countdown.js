@@ -35,16 +35,16 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/get_timer_state/${timerId}`)
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
+                if (data.success && data.timer) {
                     const countdownEl = document.querySelector(`#countdown-${timerId} .time-display`);
                     if (!countdownEl) return;
                     
-                    if (data.is_running === 1) {
+                    if (data.timer.is_running === 1) {
                         // Timer is running - start countdown with remaining time
-                        startCountdownFromRemaining(timerId, data.remaining_ms);
+                        startCountdownFromRemaining(timerId, data.timer.remaining_time);
                     } else {
                         // Timer is paused or stopped - show remaining time
-                        displayRemainingTime(countdownEl, data.remaining_ms);
+                        displayRemainingTime(countdownEl, data.timer.remaining_time);
                     }
                 } else {
                     console.error(`Failed to get timer state for timer ${timerId}:`, data.error);

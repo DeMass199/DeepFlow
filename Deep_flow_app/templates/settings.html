@@ -101,6 +101,10 @@
             border-radius: 4px;
             border: 1px solid #ddd;
         }
+        @font-face {
+            font-family: 'OpenDyslexic';
+            src: url('{{ url_for("static", filename="fonts/OpenDyslexic-Regular.otf") }}') format('opentype');
+        }
         
         /* New styles for settings forms */
         .settings-form {
@@ -604,6 +608,7 @@
                 <p>DeepFlow is designed with neurodivergent users in mind. We are committed to providing an accessible experience for all users, in alignment with the Disability Discrimination Act 1992 and <a href="{{ url_for('privacy') }}">Privacy Policy</a>.</p>
                 <p>Our accessibility features include:</p>
                 <ul>
+                    <li>OpenDyslexic font support for improved readability</li>
                     <li>High contrast mode for visual accessibility</li>
                     <li>Focus-friendly interface designed for ADHD users</li>
                     <li>Non-disruptive notifications and controls</li>
