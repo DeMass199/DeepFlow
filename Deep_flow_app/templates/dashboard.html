@@ -119,6 +119,98 @@
                 order: 1; /* Move to top on mobile */
             }
         }
+        
+        /* Energy Check-in Status Styles */
+        .energy-checkin-status {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid #0284c7;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(2, 132, 199, 0.1);
+        }
+        
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .status-container > .fas {
+            font-size: 1.5rem;
+            color: #0284c7;
+        }
+        
+        .status-content {
+            flex: 1;
+        }
+        
+        .status-title {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .status-details {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sessions-remaining {
+            font-weight: 700;
+            color: #0284c7;
+            font-size: 1.1rem;
+        }
+        
+        .sessions-text {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        .limit-warning {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #dc2626;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .limit-warning .fas {
+            font-size: 0.9rem;
+        }
+        
+        /* Disabled timer button styles when rate limit is reached */
+        .timer-button-disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+            pointer-events: none;
+        }
+        
+        .rate-limit-notice {
+            background-color: #f0f9ff;
+            border: 1px solid #0284c7;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            color: #0c4a6e;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .rate-limit-notice .fas {
+            font-size: 1rem;
+            color: #0284c7;
+        }
     </style>
 </head>
 <body>
@@ -156,6 +248,28 @@
                     <div class="flash-{{ category }}">{{ message }}</div>
                 {% endfor %}
             </div>
+
+            <!-- Energy Check-in Rate Limit Status -->
+            {% if energy_checkin_status %}
+            <div class="energy-checkin-status" id="energy-checkin-status">
+                <div class="status-container">
+                    <i class="fas fa-battery-three-quarters"></i>
+                    <div class="status-content">
+                        <span class="status-title">Energy Check-ins Today</span>
+                        <div class="status-details">
+                            <span class="sessions-remaining">{{ energy_checkin_status.remaining_sessions }}/{{ energy_checkin_status.daily_limit }}</span>
+                            <span class="sessions-text">sessions remaining</span>
+                        </div>
+                    </div>
+                    {% if not energy_checkin_status.is_allowed %}
+                    <div class="limit-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Daily limit reached</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Timer Management -->
             <div class="timer-container">
@@ -366,9 +480,6 @@
                             <button class="range-btn active" data-range="week">Week</button>
                             <button class="range-btn" data-range="month">Month</button>
                             <button class="range-btn" data-range="all">All Time</button>
-                            <button class="reset-btn" id="reset-energy-data-btn" title="Reset all energy data">
-                                <i class="fas fa-trash"></i> Reset Data
-                            </button>
                         </div>
                     </div>
 
@@ -467,21 +578,6 @@
         });
 
         // Advanced Settings Toggle Functions
-        function toggleCheckinFeature(enabled) {
-            // Store the setting in localStorage or session storage
-            localStorage.setItem('enableCheckin', enabled);
-            console.log('Mid-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
-            
-            // You can add additional logic here to control the feature
-            if (enabled) {
-                // Enable mid-session check-in functionality
-                enableMidSessionCheckin();
-            } else {
-                // Disable mid-session check-in functionality
-                disableMidSessionCheckin();
-            }
-        }
-
         function toggleEnergyLogFeature(enabled) {
             localStorage.setItem('enableEnergyLog', enabled);
             console.log('Energy Level Tracking:', enabled ? 'Enabled' : 'Disabled');
@@ -547,6 +643,68 @@
             }
         }
 
+        // Function to update UI based on rate limit status
+        function updateTimerButtonsForRateLimit() {
+            // Rate limit reached should not disable timer buttons
+            // Users can still start timers, they just skip energy check-ins
+            
+            if (window.energyCheckinRateLimit && !window.energyCheckinRateLimit.isAllowed) {
+                // Show rate limit notice but don't disable buttons
+                showRateLimitNotice();
+            } else {
+                // Hide rate limit notice when limit is not reached
+                hideRateLimitNotice();
+            }
+        }
+
+        function showRateLimitNotice() {
+            // Check if notice already exists
+            let notice = document.getElementById('rate-limit-notice');
+            if (!notice) {
+                // Create and insert the notice
+                notice = document.createElement('div');
+                notice.id = 'rate-limit-notice';
+                notice.className = 'rate-limit-notice';
+                notice.innerHTML = `
+                    <i class="fas fa-info-circle"></i>
+                    <span>
+                        Daily energy check-in limit reached (${window.energyCheckinRateLimit.dailyLimit} sessions). 
+                        You can still use timers, but energy check-ins are disabled until ${window.energyCheckinRateLimit.resetTime} tomorrow.
+                    </span>
+                `;
+                
+                // Insert before the timer container
+                const timerContainer = document.querySelector('.timer-container');
+                if (timerContainer) {
+                    timerContainer.parentNode.insertBefore(notice, timerContainer);
+                }
+            }
+        }
+
+        function hideRateLimitNotice() {
+            const notice = document.getElementById('rate-limit-notice');
+            if (notice) {
+                notice.remove();
+            }
+        }
+
+        // Set global energy check-in rate limit status
+        {% if energy_checkin_status %}
+        window.energyCheckinRateLimit = {
+            isAllowed: {{ energy_checkin_status.is_allowed|lower }},
+            remainingSessions: {{ energy_checkin_status.remaining_sessions }},
+            dailyLimit: {{ energy_checkin_status.daily_limit }},
+            resetTime: "{{ energy_checkin_status.reset_time }}"
+        };
+        {% else %}
+        window.energyCheckinRateLimit = {
+            isAllowed: true,
+            remainingSessions: 5,
+            dailyLimit: 5,
+            resetTime: "6:00 AM"
+        };
+        {% endif %}
+
         // Initialize settings from backend on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Load user preferences from backend
@@ -558,11 +716,14 @@
                         
                         // Apply the settings globally
                         window.userPreferences = prefs;
-                        toggleCheckinFeature(prefs.enable_checkin);
                         toggleEnergyLogFeature(prefs.enable_energy_log);
                         toggleSoundFeature(prefs.enable_sound);
                         
+                        // Update timer buttons based on rate limit status
+                        updateTimerButtonsForRateLimit();
+                        
                         console.log('User preferences loaded:', prefs);
+                        console.log('Energy check-in rate limit status:', window.energyCheckinRateLimit);
                     } else {
                         console.error('Failed to load preferences:', data.error);
                         // Fallback to localStorage if backend fails
@@ -578,20 +739,23 @@
 
         // Fallback function to load from localStorage
         function loadSettingsFromLocalStorage() {
-            const checkinEnabled = localStorage.getItem('enableCheckin') !== 'false';
             const energyLogEnabled = localStorage.getItem('enableEnergyLog') !== 'false';
             const soundEnabled = localStorage.getItem('enableSound') === 'true';
 
             // Set global preferences and apply settings
             window.userPreferences = {
-                enable_checkin: checkinEnabled,
+                enable_start_checkin: true,
+                enable_mid_checkin: true,
+                enable_end_checkin: true,
                 enable_energy_log: energyLogEnabled,
                 enable_sound: soundEnabled
             };
             
-            toggleCheckinFeature(checkinEnabled);
             toggleEnergyLogFeature(energyLogEnabled);
             toggleSoundFeature(soundEnabled);
+            
+            // Update timer buttons based on rate limit status
+            updateTimerButtonsForRateLimit();
         }
     </script>
 

@@ -70,28 +70,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadAndRenderChart();
             });
         });
-
-        // Reset energy data button
-        const resetBtn = document.getElementById('reset-energy-data-btn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                if (confirm('Are you sure you want to reset all energy data? This action cannot be undone.')) {
-                    resetEnergyData();
-                }
-            });
-        }
     }
 
     function updateWeekNavigation() {
         const nextWeekBtn = document.getElementById('next-week-btn');
         const currentWeekDisplay = document.getElementById('current-week-display');
         
-        // Disable next week button if at current week
+        // Disable next week button if at current period
         if (nextWeekBtn) {
             nextWeekBtn.disabled = (currentWeekOffset >= 0);
         }
         
-        // Update week display
+        // Update display based on data range
         if (currentWeekDisplay) {
             if (currentDataRange === 'week') {
                 if (currentWeekOffset === 0) {
@@ -102,7 +92,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentWeekDisplay.textContent = `${Math.abs(currentWeekOffset)} Weeks Ago`;
                 }
             } else if (currentDataRange === 'month') {
-                currentWeekDisplay.textContent = 'This Month';
+                if (currentWeekOffset === 0) {
+                    currentWeekDisplay.textContent = 'This Month';
+                } else if (currentWeekOffset === -1) {
+                    currentWeekDisplay.textContent = 'Last Month';
+                } else {
+                    currentWeekDisplay.textContent = `${Math.abs(currentWeekOffset)} Months Ago`;
+                }
             } else {
                 currentWeekDisplay.textContent = 'All Time';
             }
@@ -113,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let dataPromise;
         
         if (currentDataRange === 'week') {
-            // Fetch weekly data with insights
+            // Fetch weekly data with insights (daily averages)
             dataPromise = Promise.all([
                 fetch(`/get_weekly_insights?week_offset=${currentWeekOffset}`).then(response => response.json()),
                 fetch('/get_user_preferences').then(response => response.json())
@@ -122,13 +118,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 showWeeklyFeedback(weeklyData.insights);
                 return { energyData: weeklyData, preferencesData };
             });
+        } else if (currentDataRange === 'month') {
+            // Fetch monthly data with insights (daily averages)
+            dataPromise = Promise.all([
+                fetch(`/get_monthly_insights?month_offset=${currentWeekOffset}`).then(response => response.json()),
+                fetch('/get_user_preferences').then(response => response.json())
+            ]).then(([monthlyData, preferencesData]) => {
+                // Show monthly feedback if available
+                showWeeklyFeedback(monthlyData.insights);
+                return { energyData: monthlyData, preferencesData };
+            });
         } else {
             // Fetch all data (existing behavior)
             dataPromise = Promise.all([
                 fetch('/get_energy_logs').then(response => response.json()),
                 fetch('/get_user_preferences').then(response => response.json())
             ]).then(([energyData, preferencesData]) => {
-                // Hide weekly feedback for non-weekly views
+                // Hide weekly feedback for all-time view
                 hideWeeklyFeedback();
                 return { energyData, preferencesData };
             });
@@ -388,66 +394,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             }
-        });
-    }
-
-    function resetEnergyData() {
-        console.log('Resetting energy data...');
-        
-        fetch('/reset_energy_data', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Energy data reset successfully:', data);
-                alert(`Energy data reset successfully! Deleted ${data.deleted_logs} energy logs and ${data.deleted_insights} energy insights.`);
-                
-                // Hide the chart and show empty state
-                const chartContainer = document.getElementById('energy-chart');
-                const emptyInsights = document.getElementById('empty-insights');
-                
-                if (chartContainer) {
-                    chartContainer.style.display = 'none';
-                }
-                if (emptyInsights) {
-                    emptyInsights.style.display = 'block';
-                }
-                
-                // Destroy current chart if it exists
-                if (currentChart) {
-                    currentChart.destroy();
-                    currentChart = null;
-                }
-                
-                // Hide weekly feedback
-                hideWeeklyFeedback();
-                
-                // Reset to current week view
-                currentWeekOffset = 0;
-                currentDataRange = 'week';
-                updateWeekNavigation();
-                
-                // Update active button
-                const rangeButtons = document.querySelectorAll('.range-btn');
-                rangeButtons.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.range === 'week') {
-                        btn.classList.add('active');
-                    }
-                });
-                
-            } else {
-                console.error('Failed to reset energy data:', data.error);
-                alert('Failed to reset energy data: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error resetting energy data:', error);
-            alert('An error occurred while resetting energy data. Please try again.');
         });
     }
 });

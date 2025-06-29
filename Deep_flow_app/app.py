@@ -496,6 +496,7 @@ def dashboard():
             flash("There was an issue resetting your timer states.", "error")
 
     timers = []
+    energy_checkin_status = None
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -504,11 +505,30 @@ def dashboard():
         cursor.execute("SELECT * FROM timers WHERE user_id = ?", (user_id,))
         timers = cursor.fetchall()
         conn.close()
+        
+        # Get energy check-in rate limit status
+        is_allowed, remaining, message = check_energy_checkin_rate_limit(user_id)
+        
+        # Calculate next reset time (6:00 AM)
+        now = datetime.now()
+        if now.hour < 6:
+            next_reset = now.replace(hour=6, minute=0, second=0, microsecond=0)
+        else:
+            next_reset = now.replace(hour=6, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        
+        energy_checkin_status = {
+            'is_allowed': is_allowed,
+            'remaining_sessions': remaining,
+            'daily_limit': 5,
+            'message': message,
+            'reset_time': next_reset.strftime('%I:%M %p')
+        }
+        
     except sqlite3.Error as e:
         logger.error("Error fetching timers: %s", str(e))
         flash("Failed to load timers.", "error")
     
-    return render_template("dashboard.html", timers=timers)  # Render dashboard.html
+    return render_template("dashboard.html", timers=timers, energy_checkin_status=energy_checkin_status)  # Render dashboard.html
 
 
 @app.route("/add_timer", methods=["POST"])
@@ -750,6 +770,69 @@ def logout():
 
 
 # Helper functions for user preferences
+
+def check_energy_checkin_rate_limit(user_id, timer_id=None):
+    """
+    Check if user has exceeded the energy check-in rate limit.
+    Rate limit: 5 end check-ins per day. When reached, all check-ins are blocked until 6:00 AM the next day.
+    
+    Args:
+        user_id: The user's ID
+        timer_id: Optional timer ID to exclude from count (for the current timer being checked)
+    
+    Returns:
+        tuple: (is_allowed, remaining_count, message)
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get current time and calculate rate limit period (6:00 AM to 6:00 AM next day)
+        now = datetime.now()
+        
+        # If it's before 6:00 AM today, the period started at 6:00 AM yesterday
+        if now.hour < 6:
+            period_start = now.replace(hour=6, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        else:
+            # If it's 6:00 AM or later, the period started at 6:00 AM today
+            period_start = now.replace(hour=6, minute=0, second=0, microsecond=0)
+        
+        period_end = period_start + timedelta(days=1)
+        
+        # Count end check-ins for this period
+        query = """
+            SELECT COUNT(*) 
+            FROM energy_logs 
+            WHERE user_id = ? 
+            AND stage = 'end' 
+            AND timestamp BETWEEN ? AND ?
+        """
+        
+        params = [user_id, period_start.strftime('%Y-%m-%d %H:%M:%S'), period_end.strftime('%Y-%m-%d %H:%M:%S')]
+        
+        # Exclude current timer if provided
+        if timer_id:
+            query += " AND timer_id != ?"
+            params.append(timer_id)
+            
+        cursor.execute(query, params)
+        end_checkins_today = cursor.fetchone()[0]
+        conn.close()
+        
+        DAILY_LIMIT = 5
+        remaining = max(0, DAILY_LIMIT - end_checkins_today)
+        
+        if end_checkins_today >= DAILY_LIMIT:
+            next_reset = period_end.strftime('%I:%M %p')
+            next_reset_date = period_end.strftime('%B %d')
+            return False, 0, f"Daily limit reached. You've completed {DAILY_LIMIT} end check-ins today. All energy check-ins are blocked until 6:00 AM tomorrow ({next_reset_date})."
+        
+        return True, remaining, f"End check-ins available: {remaining} out of {DAILY_LIMIT} daily end check-ins (resets at 6:00 AM)."
+        
+    except sqlite3.Error as e:
+        logger.error("Error checking energy check-in rate limit: %s", str(e))
+        # Allow check-in if we can't determine the limit (fail open)
+        return True, 5, "Rate limit check failed, allowing check-in."
 
 def get_user_feature_preferences(user_id):
     """Get user's feature preferences as a dictionary"""
@@ -1105,6 +1188,12 @@ def log_energy():
         if not stage_enabled:
             return {"error": f"{stage.capitalize()} check-in is disabled for this user"}, 403
         
+        # Check energy check-in rate limit for all stages
+        # The rate limit is based on end check-ins, but when reached, it blocks all check-ins
+        is_allowed, remaining, message = check_energy_checkin_rate_limit(session['user_id'], timer_id)
+        if not is_allowed:
+            return {"error": message, "remaining_sessions": 0}, 429  # Too Many Requests
+        
         try:
             energy_level = int(energy_level)
             if not (1 <= energy_level <= 10):
@@ -1157,21 +1246,29 @@ def log_energy():
                         end_time = NULL, paused_at = NULL, elapsed_time = 0
                     WHERE id = ? AND user_id = ?
                 """, (timer_id, session['user_id']))
-                logger.debug("Timer %d started automatically after energy log.", timer_id)
+                logger.debug("Timer %s started automatically after energy log.", timer_id)
             elif stage == 'end':
                 cursor.execute("""
                     UPDATE timers
                     SET is_running = 0, end_time = datetime('now', 'localtime')
                     WHERE id = ? AND user_id = ?
                 """, (timer_id, session['user_id']))
-                logger.debug("Timer %d stopped automatically after energy log.", timer_id)
+                logger.debug("Timer %s stopped automatically after energy log.", timer_id)
             
             conn.commit()
             conn.close()
             
+            # Get updated rate limit status
+            _, remaining, rate_message = check_energy_checkin_rate_limit(session['user_id'])
+            
             return {
                 "success": True,
-                "message": "Energy logged and timer action completed successfully"
+                "message": "Energy logged and timer action completed successfully",
+                "rate_limit": {
+                    "remaining_sessions": remaining,
+                    "daily_limit": 5,
+                    "status_message": rate_message
+                }
             }, 200
         except sqlite3.Error as e:
             logger.error("Error logging energy: %s", str(e))
@@ -1575,8 +1672,7 @@ def get_weekly_insights():
         # Get energy logs for the week
         cursor.execute('''
             SELECT energy_level, timestamp, 
-                   strftime('%w', timestamp) as day_of_week,
-                   strftime('%H', timestamp) as hour_of_day
+                   DATE(timestamp) as log_date
             FROM energy_logs 
             WHERE user_id = ? AND timestamp BETWEEN ? AND ?
             ORDER BY timestamp
@@ -1599,28 +1695,60 @@ def get_weekly_insights():
                 }
             })
         
-        # Calculate insights
-        energy_levels = [log[0] for log in weekly_logs]
-        avg_energy = sum(energy_levels) / len(energy_levels)
-        total_sessions = len(energy_levels)
-        
-        # Find best day of week (0=Sunday, 1=Monday, etc.)
-        day_energies = {}
-        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        
+        # Group logs by date and calculate daily averages
+        daily_data = {}
         for log in weekly_logs:
-            day_num = int(log[2])
-            if day_num not in day_energies:
-                day_energies[day_num] = []
-            day_energies[day_num].append(log[0])
+            log_date = log[2]  # DATE(timestamp) as log_date
+            if log_date not in daily_data:
+                daily_data[log_date] = []
+            daily_data[log_date].append(log[0])  # energy_level
         
-        # Calculate average energy per day
-        day_averages = {}
-        for day_num, energies in day_energies.items():
-            day_averages[day_num] = sum(energies) / len(energies)
+        # Calculate daily averages
+        daily_averages = {}
+        formatted_logs = []
+        for date, energy_levels in daily_data.items():
+            avg_energy = sum(energy_levels) / len(energy_levels)
+            daily_averages[date] = avg_energy
+            
+            # Convert to user's timezone for display
+            timezone_offset = get_user_timezone_offset(user_id)
+            date_obj = datetime.strptime(date + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
+            adjusted_time = convert_to_user_timezone(date_obj.strftime('%Y-%m-%d %H:%M:%S'), timezone_offset)
+            
+            formatted_logs.append({
+                'energy_level': round(avg_energy, 1),
+                'timestamp': adjusted_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'date': date,
+                'session_count': len(energy_levels)
+            })
         
-        best_day_num = max(day_averages.keys(), key=lambda x: day_averages[x]) if day_averages else 0
-        best_day = day_names[best_day_num]
+        # Calculate insights based on daily averages
+        energy_levels = list(daily_averages.values())
+        avg_energy = sum(energy_levels) / len(energy_levels)
+        total_sessions = sum(log['session_count'] for log in formatted_logs)
+        
+        # Find best day of week using daily averages
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        best_day = 'No data'
+        
+        if daily_averages:
+            # Convert dates to day of week and find the best one
+            day_energies = {}
+            for date, avg_energy_for_date in daily_averages.items():
+                date_obj = datetime.strptime(date, '%Y-%m-%d')
+                day_num = date_obj.weekday()  # 0 = Monday, 6 = Sunday
+                if day_num not in day_energies:
+                    day_energies[day_num] = []
+                day_energies[day_num].append(avg_energy_for_date)
+            
+            # Calculate average energy per day of week
+            day_averages = {}
+            for day_num, energies in day_energies.items():
+                day_averages[day_num] = sum(energies) / len(energies)
+            
+            if day_averages:
+                best_day_num = max(day_averages.keys(), key=lambda x: day_averages[x])
+                best_day = day_names[best_day_num]
         
         # Calculate energy trend
         if len(energy_levels) >= 3:
@@ -1660,19 +1788,6 @@ def get_weekly_insights():
             'insight_message': insight_message
         }
         
-        # Format logs for frontend with timezone conversion
-        timezone_offset = get_user_timezone_offset(user_id)
-        formatted_logs = []
-        for log in weekly_logs:
-            # Convert timestamp to user's timezone
-            adjusted_time = convert_to_user_timezone(log[1], timezone_offset)
-            formatted_logs.append({
-                'energy_level': log[0],
-                'timestamp': adjusted_time.strftime('%Y-%m-%d %H:%M:%S'),
-                'day_of_week': log[2],
-                'hour_of_day': log[3]
-            })
-        
         conn.close()
         
         return jsonify({
@@ -1685,6 +1800,181 @@ def get_weekly_insights():
         
     except (sqlite3.Error, ValueError) as e:
         logger.error("Error getting weekly insights: %s", str(e))
+        return {"error": "Database error"}, 500
+
+
+@app.route("/get_monthly_insights")
+def get_monthly_insights():
+    """Get monthly energy insights and feedback."""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        user_id = session['user_id']
+        month_offset = request.args.get('month_offset', 0, type=int)  # 0 = current month, -1 = last month, etc.
+        
+        # Calculate month boundaries
+        today = datetime.now()
+        # Get first day of current month
+        first_day_current_month = today.replace(day=1)
+        
+        # Adjust for month offset
+        target_month = first_day_current_month
+        for _ in range(abs(month_offset)):
+            if month_offset < 0:
+                # Go back months
+                target_month = (target_month - timedelta(days=1)).replace(day=1)
+            else:
+                # Go forward months (for future functionality)
+                if target_month.month == 12:
+                    target_month = target_month.replace(year=target_month.year + 1, month=1)
+                else:
+                    target_month = target_month.replace(month=target_month.month + 1)
+        
+        # Calculate last day of target month
+        if target_month.month == 12:
+            last_day_target_month = target_month.replace(year=target_month.year + 1, month=1) - timedelta(days=1)
+        else:
+            last_day_target_month = target_month.replace(month=target_month.month + 1) - timedelta(days=1)
+        
+        # Format dates for SQL query
+        month_start = target_month.strftime('%Y-%m-%d 00:00:00')
+        month_end = last_day_target_month.strftime('%Y-%m-%d 23:59:59')
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get energy logs for the month
+        cursor.execute('''
+            SELECT energy_level, timestamp, 
+                   DATE(timestamp) as log_date
+            FROM energy_logs 
+            WHERE user_id = ? AND timestamp BETWEEN ? AND ?
+            ORDER BY timestamp
+        ''', (user_id, month_start, month_end))
+        
+        monthly_logs = cursor.fetchall()
+        
+        if not monthly_logs:
+            return jsonify({
+                'success': True,
+                'month_start': target_month.strftime('%Y-%m-%d'),
+                'month_end': last_day_target_month.strftime('%Y-%m-%d'),
+                'logs': [],
+                'insights': {
+                    'avg_energy': 0,
+                    'total_sessions': 0,
+                    'best_day': 'No data',
+                    'energy_trend': 'No trend',
+                    'insight_message': 'Start logging your energy levels to see monthly insights!'
+                }
+            })
+        
+        # Group logs by date and calculate daily averages
+        daily_data = {}
+        for log in monthly_logs:
+            log_date = log[2]  # DATE(timestamp) as log_date
+            if log_date not in daily_data:
+                daily_data[log_date] = []
+            daily_data[log_date].append(log[0])  # energy_level
+        
+        # Calculate daily averages
+        daily_averages = {}
+        formatted_logs = []
+        for date, energy_levels in daily_data.items():
+            avg_energy = sum(energy_levels) / len(energy_levels)
+            daily_averages[date] = avg_energy
+            
+            # Convert to user's timezone for display
+            timezone_offset = get_user_timezone_offset(user_id)
+            date_obj = datetime.strptime(date + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
+            adjusted_time = convert_to_user_timezone(date_obj.strftime('%Y-%m-%d %H:%M:%S'), timezone_offset)
+            
+            formatted_logs.append({
+                'energy_level': round(avg_energy, 1),
+                'timestamp': adjusted_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'date': date,
+                'session_count': len(energy_levels)
+            })
+        
+        # Calculate insights based on daily averages
+        energy_levels = list(daily_averages.values())
+        avg_energy = sum(energy_levels) / len(energy_levels)
+        total_sessions = sum(log['session_count'] for log in formatted_logs)
+        
+        # Find best day of week using daily averages
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        best_day = 'No data'
+        
+        if daily_averages:
+            # Convert dates to day of week and find the best one
+            day_energies = {}
+            for date, avg_energy_for_date in daily_averages.items():
+                date_obj = datetime.strptime(date, '%Y-%m-%d')
+                day_num = date_obj.weekday()  # 0 = Monday, 6 = Sunday
+                if day_num not in day_energies:
+                    day_energies[day_num] = []
+                day_energies[day_num].append(avg_energy_for_date)
+            
+            # Calculate average energy per day of week
+            day_averages = {}
+            for day_num, energies in day_energies.items():
+                day_averages[day_num] = sum(energies) / len(energies)
+            
+            if day_averages:
+                best_day_num = max(day_averages.keys(), key=lambda x: day_averages[x])
+                best_day = day_names[best_day_num]
+        
+        # Calculate energy trend
+        if len(energy_levels) >= 7:  # Need at least a week of data for trend
+            first_week = energy_levels[:7]
+            last_week = energy_levels[-7:]
+            first_avg = sum(first_week) / len(first_week)
+            last_avg = sum(last_week) / len(last_week)
+            
+            if last_avg > first_avg + 0.5:
+                trend = "📈 Improving"
+            elif last_avg < first_avg - 0.5:
+                trend = "📉 Declining"
+            else:
+                trend = "📊 Stable"
+        else:
+            trend = "📊 Building data"
+        
+        # Generate insight message for monthly view
+        if avg_energy >= 7.5:
+            insight_message = f"Exceptional month! Your average daily energy level of {avg_energy:.1f} shows outstanding consistency in maintaining high focus."
+        elif avg_energy >= 6.0:
+            insight_message = f"Great month! With an average daily energy of {avg_energy:.1f}, you're maintaining good focus patterns consistently."
+        elif avg_energy >= 4.0:
+            insight_message = f"Your average daily energy this month was {avg_energy:.1f}. Consider reviewing your monthly patterns for optimization opportunities."
+        else:
+            insight_message = f"This month's average daily energy was {avg_energy:.1f}. You might benefit from identifying patterns and addressing factors affecting your energy."
+        
+        # Add day-specific insight
+        if best_day != 'No data':
+            insight_message += f" Your most energetic day type this month was {best_day} - consider scheduling important tasks on these days."
+        
+        insights = {
+            'avg_energy': round(avg_energy, 1),
+            'total_sessions': total_sessions,
+            'best_day': best_day,
+            'energy_trend': trend,
+            'insight_message': insight_message
+        }
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'month_start': target_month.strftime('%Y-%m-%d'),
+            'month_end': last_day_target_month.strftime('%Y-%m-%d'),
+            'logs': formatted_logs,
+            'insights': insights
+        })
+        
+    except (sqlite3.Error, ValueError) as e:
+        logger.error("Error getting monthly insights: %s", str(e))
         return {"error": "Database error"}, 500
 
 
@@ -1899,7 +2189,7 @@ def delete_account():
             cursor.execute("DELETE FROM flow_shelf WHERE user_id = ?", (user_id,))
             cursor.execute("DELETE FROM timers WHERE user_id = ?", (user_id,))
             cursor.execute("DELETE FROM user_preferences WHERE user_id = ?", (user_id,))
-            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE id = ?", ( user_id,))
             
             conn.commit()
             conn.close()
@@ -1924,5 +2214,47 @@ def privacy():
     return render_template("privacy_policy_public.html")
 
 
+@app.route("/get_energy_checkin_status", methods=["GET"])
+def get_energy_checkin_status():
+    """Get the current energy check-in rate limit status for the user"""
+    if 'user_id' not in session:
+        return {"error": "Not authenticated"}, 401
+    
+    try:
+        is_allowed, remaining, message = check_energy_checkin_rate_limit(session['user_id'])
+        
+        return {
+            "success": True,
+            "is_allowed": is_allowed,
+            "remaining_sessions": remaining,
+            "daily_limit": 5,
+            "message": message
+        }, 200
+        
+    except Exception as e:
+        logger.error("Error getting energy check-in status: %s", str(e))
+        return {"error": "Failed to get rate limit status"}, 500
+
+
+# Energy Log API Endpoints
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5003)
+    # Configuration for running the app
+    HOST = "127.0.0.1"
+    PORT = 5003
+    DEBUG = True
+    
+    print("=" * 60)
+    print("🌊 DeepFlow - Focus Timer Application")
+    print("=" * 60)
+    print(f"✅ Server starting...")
+    print(f"🌐 Open your web browser and navigate to:")
+    print(f"   ➡️  http://{HOST}:{PORT}")
+    print(f"")
+    print(f"💡 Press CTRL+C to stop the server")
+    print("=" * 60)
+    print("")
+    
+    # Start the Flask application
+    app.run(host=HOST, port=PORT, debug=DEBUG)

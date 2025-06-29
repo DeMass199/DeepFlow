@@ -26,6 +26,20 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     window.showEnergyCheckinModal = function(timerId, stage) {
+        // First check if rate limit has been reached
+        if (window.energyCheckinRateLimit && !window.energyCheckinRateLimit.isAllowed) {
+            console.log('Energy check-in blocked: Daily rate limit reached, skipping to timer action');
+            
+            // Perform the timer action directly without energy check-in
+            // No need for intrusive alert since this is expected behavior
+            if (stage === 'start') {
+                startTimerDirectly(timerId);
+            } else if (stage === 'end') {
+                stopTimerDirectly(timerId);
+            }
+            return;
+        }
+        
         // Check user preferences before showing modal
         checkUserPreferences().then(prefs => {
             let shouldShow = false;
