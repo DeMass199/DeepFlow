@@ -794,6 +794,20 @@
         function toggleStartCheckinFeature(enabled) {
             console.log('Start-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
             
+            // Check if energy logging is enabled when trying to enable check-in
+            if (enabled) {
+                const energyLogCheckbox = document.getElementById('enable-energy-log');
+                if (energyLogCheckbox && !energyLogCheckbox.checked) {
+                    // Revert the checkbox and show warning
+                    const startCheckinCheckbox = document.getElementById('enable-start-checkin');
+                    if (startCheckinCheckbox) {
+                        startCheckinCheckbox.checked = false;
+                    }
+                    showToast('Please enable Energy Level Tracking first before enabling individual check-ins.', 'warning');
+                    return;
+                }
+            }
+            
             // Update status indicator immediately for responsive feel
             updateFeatureStatus('start-checkin-status', enabled);
             
@@ -817,6 +831,20 @@
         function toggleMidCheckinFeature(enabled) {
             console.log('Mid-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
             
+            // Check if energy logging is enabled when trying to enable check-in
+            if (enabled) {
+                const energyLogCheckbox = document.getElementById('enable-energy-log');
+                if (energyLogCheckbox && !energyLogCheckbox.checked) {
+                    // Revert the checkbox and show warning
+                    const midCheckinCheckbox = document.getElementById('enable-mid-checkin');
+                    if (midCheckinCheckbox) {
+                        midCheckinCheckbox.checked = false;
+                    }
+                    showToast('Please enable Energy Level Tracking first before enabling individual check-ins.', 'warning');
+                    return;
+                }
+            }
+            
             // Update status indicator immediately for responsive feel
             updateFeatureStatus('mid-checkin-status', enabled);
             
@@ -839,6 +867,20 @@
 
         function toggleEndCheckinFeature(enabled) {
             console.log('End-Session Energy Check-In:', enabled ? 'Enabled' : 'Disabled');
+            
+            // Check if energy logging is enabled when trying to enable check-in
+            if (enabled) {
+                const energyLogCheckbox = document.getElementById('enable-energy-log');
+                if (energyLogCheckbox && !energyLogCheckbox.checked) {
+                    // Revert the checkbox and show warning
+                    const endCheckinCheckbox = document.getElementById('enable-end-checkin');
+                    if (endCheckinCheckbox) {
+                        endCheckinCheckbox.checked = false;
+                    }
+                    showToast('Please enable Energy Level Tracking first before enabling individual check-ins.', 'warning');
+                    return;
+                }
+            }
             
             // Update status indicator immediately for responsive feel
             updateFeatureStatus('end-checkin-status', enabled);
@@ -866,15 +908,52 @@
             // Update status indicator immediately for responsive feel
             updateFeatureStatus('energy-log-status', enabled);
             
-            // Show confirmation toast
-            showToast(
-                enabled ? 'Energy Level Tracking enabled! You\'ll be prompted to log your energy before and after sessions.' 
-                       : 'Energy Level Tracking disabled. Timers will start and stop directly without energy prompts.',
-                enabled ? 'success' : 'info'
-            );
-            
-            // Update backend preferences
-            updatePreferenceBackend('enable_energy_log', enabled);
+            // If energy logging is being disabled, automatically disable all check-ins
+            if (!enabled) {
+                // Disable all check-in features
+                const startCheckinCheckbox = document.getElementById('enable-start-checkin');
+                const midCheckinCheckbox = document.getElementById('enable-mid-checkin');
+                const endCheckinCheckbox = document.getElementById('enable-end-checkin');
+                
+                if (startCheckinCheckbox) {
+                    startCheckinCheckbox.checked = false;
+                    updateFeatureStatus('start-checkin-status', false);
+                    disableStartCheckin();
+                }
+                if (midCheckinCheckbox) {
+                    midCheckinCheckbox.checked = false;
+                    updateFeatureStatus('mid-checkin-status', false);
+                    disableMidSessionCheckin();
+                }
+                if (endCheckinCheckbox) {
+                    endCheckinCheckbox.checked = false;
+                    updateFeatureStatus('end-checkin-status', false);
+                    disableEndCheckin();
+                }
+                
+                // Show comprehensive toast message
+                showToast(
+                    'Energy Level Tracking disabled. All energy check-ins (start, mid, and end session) have been automatically disabled.',
+                    'info'
+                );
+                
+                // Update all preferences in backend at once
+                updateMultiplePreferencesBackend({
+                    'enable_energy_log': false,
+                    'enable_start_checkin': false,
+                    'enable_mid_checkin': false,
+                    'enable_end_checkin': false
+                });
+            } else {
+                // Show simple toast for enabling
+                showToast(
+                    'Energy Level Tracking enabled! You can now configure individual check-in settings.',
+                    'success'
+                );
+                
+                // Update just energy log preference
+                updatePreferenceBackend('enable_energy_log', enabled);
+            }
             
             if (enabled) {
                 enableEnergyTracking();
@@ -995,6 +1074,67 @@
                 
                 // Revert toggle and status if request failed
                 revertFeatureToggle(preferenceKey, !enabled);
+            });
+        }
+
+        // Function to update multiple preferences in backend at once
+        function updateMultiplePreferencesBackend(preferences) {
+            fetch('/update_user_preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(preferences)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success confirmation
+                    showToast('Settings saved successfully!', 'success', 2000);
+                    
+                    // If backend returned updated preferences, sync UI
+                    if (data.updated_preferences) {
+                        console.log('Backend returned updated preferences:', data.updated_preferences);
+                        // Update UI to match backend state in case any preferences were overridden
+                        const backendPrefs = data.updated_preferences;
+                        Object.keys(backendPrefs).forEach(key => {
+                            const value = backendPrefs[key];
+                            const featureMap = {
+                                'enable_start_checkin': { toggleId: 'enable-start-checkin', statusId: 'start-checkin-status' },
+                                'enable_mid_checkin': { toggleId: 'enable-mid-checkin', statusId: 'mid-checkin-status' },
+                                'enable_end_checkin': { toggleId: 'enable-end-checkin', statusId: 'end-checkin-status' },
+                                'enable_energy_log': { toggleId: 'enable-energy-log', statusId: 'energy-log-status' },
+                                'enable_sound': { toggleId: 'enable-sound', statusId: 'sound-status' }
+                            };
+                            
+                            const feature = featureMap[key];
+                            if (feature) {
+                                const toggle = document.getElementById(feature.toggleId);
+                                if (toggle && toggle.checked !== value) {
+                                    toggle.checked = value;
+                                    updateFeatureStatus(feature.statusId, value);
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    console.error('Failed to update preferences:', data.error);
+                    showToast('Failed to save settings. Please try again.', 'error');
+                    
+                    // Revert all changed preferences
+                    Object.keys(preferences).forEach(key => {
+                        revertFeatureToggle(key, !preferences[key]);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error updating preferences:', error);
+                showToast('Connection error. Settings may not be saved.', 'error');
+                
+                // Revert all changed preferences
+                Object.keys(preferences).forEach(key => {
+                    revertFeatureToggle(key, !preferences[key]);
+                });
             });
         }
 

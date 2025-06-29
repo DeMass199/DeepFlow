@@ -912,6 +912,12 @@ def update_user_preferences():
         enable_energy_log = data.get("enable_energy_log", True)
         enable_sound = data.get("enable_sound", False)
         
+        # If energy logging is disabled, automatically disable all check-ins
+        if not enable_energy_log:
+            enable_start_checkin = False
+            enable_mid_checkin = False
+            enable_end_checkin = False
+        
         try:
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
@@ -930,7 +936,14 @@ def update_user_preferences():
             
             return {
                 "success": True,
-                "message": "Preferences updated successfully"
+                "message": "Preferences updated successfully",
+                "updated_preferences": {
+                    "enable_start_checkin": enable_start_checkin,
+                    "enable_mid_checkin": enable_mid_checkin,
+                    "enable_end_checkin": enable_end_checkin,
+                    "enable_energy_log": enable_energy_log,
+                    "enable_sound": enable_sound
+                }
             }, 200
             
         except sqlite3.Error as e:
