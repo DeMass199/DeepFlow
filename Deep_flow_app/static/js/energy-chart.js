@@ -296,21 +296,37 @@ document.addEventListener('DOMContentLoaded', function () {
         const labels = logs.map(log => {
             const adjustedDate = convertToTimezone(log.timestamp, timezoneOffset);
             
-            // Try to use Intl.DateTimeFormat with timezone if supported
-            try {
-                return new Intl.DateTimeFormat(localeSettings.locale, {
-                    timeZone: timezone,
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false  // Always use 24-hour format
-                }).format(new Date(log.timestamp));
-            } catch (e) {
-                // Fallback to manual timezone conversion if Intl.DateTimeFormat fails
-                // Ensure 24-hour format in fallback as well
-                return adjustedDate.toLocaleString(localeSettings.locale, { hour12: false });
+            // Format labels differently based on data range
+            if (currentDataRange === 'week' || currentDataRange === 'month') {
+                // For week and month views, show only date without time
+                try {
+                    return new Intl.DateTimeFormat(localeSettings.locale, {
+                        timeZone: timezone,
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    }).format(new Date(log.timestamp));
+                } catch (e) {
+                    // Fallback to manual date formatting without time
+                    return adjustedDate.toLocaleDateString(localeSettings.locale);
+                }
+            } else {
+                // For all-time view, show date and time
+                try {
+                    return new Intl.DateTimeFormat(localeSettings.locale, {
+                        timeZone: timezone,
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false  // Always use 24-hour format
+                    }).format(new Date(log.timestamp));
+                } catch (e) {
+                    // Fallback to manual timezone conversion if Intl.DateTimeFormat fails
+                    // Ensure 24-hour format in fallback as well
+                    return adjustedDate.toLocaleString(localeSettings.locale, { hour12: false });
+                }
             }
         });
         
@@ -327,12 +343,20 @@ document.addEventListener('DOMContentLoaded', function () {
         // Apply country-specific font to the chart container
         chartContainer.style.fontFamily = localeSettings.font;
 
+        // Determine chart title based on data range
+        let chartTitle = 'Energy Levels Over Time';
+        if (currentDataRange === 'week') {
+            chartTitle = 'Daily Average Energy Levels - Weekly View';
+        } else if (currentDataRange === 'month') {
+            chartTitle = 'Daily Average Energy Levels - Monthly View';
+        }
+
         currentChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Energy Level',
+                    label: currentDataRange === 'week' || currentDataRange === 'month' ? 'Daily Average Energy' : 'Energy Level',
                     data: energyLevels,
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -353,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     },
                     title: {
                         display: true,
-                        text: 'Energy Levels Over Time',
+                        text: chartTitle,
                         font: {
                             family: localeSettings.font,
                             size: 16
@@ -381,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     x: {
                         title: {
                             display: true,
-                            text: 'Time',
+                            text: currentDataRange === 'week' || currentDataRange === 'month' ? 'Date' : 'Time',
                             font: {
                                 family: localeSettings.font
                             }

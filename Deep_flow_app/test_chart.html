@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Chart Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .chart-container {
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button.active {
+            background-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <h1>Energy Chart Test - Date/Time Formatting</h1>
+    
+    <div class="controls">
+        <button id="week-btn" class="active" onclick="setDataRange('week')">Week View</button>
+        <button id="month-btn" onclick="setDataRange('month')">Month View</button>
+        <button id="all-btn" onclick="setDataRange('all')">All Time View</button>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="test-chart"></canvas>
+    </div>
+    
+    <script>
+        let currentChart = null;
+        let currentDataRange = 'week';
+        
+        // Test data for different views
+        const testData = {
+            week: [
+                { timestamp: '2025-06-23 12:00:00', energy_level: 7.2 },
+                { timestamp: '2025-06-24 12:00:00', energy_level: 6.8 },
+                { timestamp: '2025-06-25 12:00:00', energy_level: 8.1 },
+                { timestamp: '2025-06-26 12:00:00', energy_level: 7.5 },
+                { timestamp: '2025-06-27 12:00:00', energy_level: 6.9 },
+                { timestamp: '2025-06-28 12:00:00', energy_level: 8.3 },
+                { timestamp: '2025-06-29 12:00:00', energy_level: 7.7 }
+            ],
+            month: [
+                { timestamp: '2025-06-01 12:00:00', energy_level: 7.0 },
+                { timestamp: '2025-06-05 12:00:00', energy_level: 6.5 },
+                { timestamp: '2025-06-10 12:00:00', energy_level: 8.0 },
+                { timestamp: '2025-06-15 12:00:00', energy_level: 7.2 },
+                { timestamp: '2025-06-20 12:00:00', energy_level: 6.8 },
+                { timestamp: '2025-06-25 12:00:00', energy_level: 8.1 },
+                { timestamp: '2025-06-29 12:00:00', energy_level: 7.5 }
+            ],
+            all: [
+                { timestamp: '2025-06-01 09:15:00', energy_level: 6.0 },
+                { timestamp: '2025-06-01 14:30:00', energy_level: 7.5 },
+                { timestamp: '2025-06-02 11:45:00', energy_level: 5.8 },
+                { timestamp: '2025-06-02 16:20:00', energy_level: 8.2 },
+                { timestamp: '2025-06-03 10:10:00', energy_level: 7.0 },
+                { timestamp: '2025-06-03 15:50:00', energy_level: 6.3 },
+                { timestamp: '2025-06-29 08:30:00', energy_level: 7.8 }
+            ]
+        };
+        
+        function setDataRange(range) {
+            currentDataRange = range;
+            
+            // Update button states
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(range + '-btn').classList.add('active');
+            
+            renderChart();
+        }
+        
+        function renderChart() {
+            const ctx = document.getElementById('test-chart').getContext('2d');
+            const logs = testData[currentDataRange];
+            
+            // Destroy existing chart
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // Format labels based on data range
+            const labels = logs.map(log => {
+                const date = new Date(log.timestamp);
+                
+                if (currentDataRange === 'week' || currentDataRange === 'month') {
+                    // Show only date for week and month views
+                    return date.toLocaleDateString('en-AU', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                } else {
+                    // Show date and time for all-time view
+                    return date.toLocaleDateString('en-AU', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                }
+            });
+            
+            const energyLevels = logs.map(log => log.energy_level);
+            
+            // Chart title based on range
+            let chartTitle = 'Energy Levels Over Time';
+            let datasetLabel = 'Energy Level';
+            let xAxisLabel = 'Time';
+            
+            if (currentDataRange === 'week') {
+                chartTitle = 'Daily Average Energy Levels - Weekly View';
+                datasetLabel = 'Daily Average Energy';
+                xAxisLabel = 'Date';
+            } else if (currentDataRange === 'month') {
+                chartTitle = 'Daily Average Energy Levels - Monthly View';
+                datasetLabel = 'Daily Average Energy';
+                xAxisLabel = 'Date';
+            }
+            
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: datasetLabel,
+                        data: energyLevels,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: chartTitle,
+                            font: {
+                                size: 16
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 1,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: 'Energy Level'
+                            },
+                            ticks: {
+                                stepSize: 1
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: xAxisLabel
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initial render
+        renderChart();
+    </script>
+</body>
+</html>
