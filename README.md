@@ -1,4 +1,4 @@
-# 🧠 DeepFlow – ADHD-Focused Timer Application
+#  DeepFlow – ADHD-Focused Timer Application
 
 **DeepFlow** is a comprehensive focus timer application designed specifically for users with ADHD. It features:
 
@@ -8,11 +8,11 @@
 - Flow Shelf task management
 - Advanced user preferences
 
-The application helps users optimize their focus sessions through **data-driven insights** and **personalised settings**.
+The application helps users optimise their focus sessions through **data-driven insights** and **personalised settings**.
 
 ---
 
-## 🚀 Installation Instructions
+## Installation Instructions
 
 1. Clone the repository:  
    ```bash
@@ -22,7 +22,7 @@ The application helps users optimize their focus sessions through **data-driven 
 4. Install dependencies: `pip install requirements.txt` 
 5. Run the app: `python3 app.py` 
 
-## 📖 How to Use
+## How to Use
 Register for an account via the sign-up page, then log in.
 
 Add timers and start focus sessions.
