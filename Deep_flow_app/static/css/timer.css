@@ -67,3 +67,50 @@
     border: 2px solid var(--primary);
     border-radius: var(--radius);
 }
+
+/* Timer completion flashing animation */
+@keyframes timer-complete-flash {
+    0% { 
+        background-color: #28a745;
+        border-color: #28a745;
+        color: white;
+        transform: scale(1);
+    }
+    25% { 
+        background-color: #ffc107;
+        border-color: #ffc107;
+        color: black;
+        transform: scale(1.05);
+    }
+    50% { 
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+        transform: scale(1);
+    }
+    75% { 
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+        color: white;
+        transform: scale(1.05);
+    }
+    100% { 
+        background-color: #28a745;
+        border-color: #28a745;
+        color: white;
+        transform: scale(1);
+    }
+}
+
+.timer-completed {
+    animation: timer-complete-flash 1s ease-in-out infinite;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 20px rgba(40, 167, 69, 0.6);
+}
+
+.timer-completed .timer-countdown {
+    animation: timer-complete-flash 1s ease-in-out infinite;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+}

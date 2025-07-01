@@ -301,6 +301,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (timeLeft <= 0) {
             // Timer is complete
             countdownEl.textContent = 'Complete!';
+            
+            // Add flashing effect to the timer
+            const timerItem = countdownEl.closest('.timer-item');
+            const timerCountdown = countdownEl.closest('.timer-countdown');
+            
+            if (timerItem) {
+                timerItem.classList.add('timer-completed');
+            }
+            if (timerCountdown) {
+                timerCountdown.classList.add('timer-completed');
+            }
+            
+            // Play completion sound if enabled
+            if (window.userPreferences && window.userPreferences.enable_sound) {
+                playCompletionSound();
+            }
+            
             return true;
         }
         
@@ -361,4 +378,39 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.reload(); // Fallback
         });
     };
+    
+    /**
+     * Play completion sound when a timer finishes
+     */
+    function playCompletionSound() {
+        try {
+            const audio = new Audio('/static/audio/timer-complete.mp3');
+            audio.volume = 0.5; // Set volume to 50%
+            audio.play().catch(error => {
+                console.warn('Could not play completion sound:', error);
+            });
+        } catch (error) {
+            console.warn('Could not create audio element for completion sound:', error);
+        }
+    }
+    
+    /**
+     * Stop flashing effect for a completed timer
+     * @param {string} timerId - ID of the timer
+     */
+    function stopTimerFlashing(timerId) {
+        const timerItem = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
+        const timerCountdown = document.querySelector(`#countdown-${timerId}`);
+        
+        if (timerItem) {
+            timerItem.classList.remove('timer-completed');
+        }
+        if (timerCountdown) {
+            timerCountdown.classList.remove('timer-completed');
+        }
+    }
+    
+    // Make functions globally available
+    window.stopTimerFlashing = stopTimerFlashing;
+    window.playCompletionSound = playCompletionSound;
 });

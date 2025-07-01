@@ -1,6 +1,11 @@
 function startTimer(timerId) {
     console.log(`Attempting to start timer with ID: ${timerId}`);
 
+    // Stop any timer flashing effect when timer is started
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
+
     // Make a request to the backend to start the timer
     fetch(`/start_timer/${timerId}`, {
         method: 'POST',
@@ -27,6 +32,11 @@ function startTimer(timerId) {
 }
 
 function pauseTimer(timerId) {
+    // Stop any timer flashing effect when timer is paused
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
+    
     fetch(`/pause_timer/${timerId}`, {
         method: 'POST',
         headers: {
@@ -58,6 +68,11 @@ function pauseTimer(timerId) {
 }
 
 function resumeTimer(timerId) {
+    // Stop any timer flashing effect when timer is resumed
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
+    
     fetch(`/resume_timer/${timerId}`, {
         method: 'POST',
         headers: {
@@ -83,6 +98,11 @@ function resumeTimer(timerId) {
 }
 
 function stopTimer(timerId) {
+    // Stop any timer flashing effect when timer is stopped
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
+    
     fetch(`/stop_timer/${timerId}`, {
         method: 'POST',
         headers: {
@@ -107,6 +127,11 @@ function stopTimer(timerId) {
 function updateTimerUI(timerId, state) {
     const timerItem = document.querySelector(`.timer-item[data-timer-id="${timerId}"]`);
     if (!timerItem) return;
+    
+    // Stop any timer flashing effect when UI state changes
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
     
     // Update data attributes
     if (state === 'running') {

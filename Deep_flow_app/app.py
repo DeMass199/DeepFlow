@@ -240,7 +240,7 @@ def validate_user(username, password):
 
 # Update the database schema
 def init_db():
-    """Initialize the database with proper schema"""
+    """Initialise the database with proper schema"""
     conn = None
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -339,7 +339,7 @@ def init_db():
         """)
         
         conn.commit()
-        logger.info("Database initialized successfully")
+        logger.info("Database initialised successfully")
         return True
     except sqlite3.Error as e:
         logger.error("Database initialization error: %s", str(e))
@@ -348,7 +348,7 @@ def init_db():
         if conn:
             conn.close()
 
-# Initialize the database
+# Initialise the database
 init_db()
 
 @app.route("/")
@@ -766,7 +766,7 @@ def logout():
     """Handle user logout"""
     session.clear()  # Clear all session data
     flash("You have been logged out successfully.", "success")
-    return redirect(url_for("login"))
+    return redirect(url_for("home"))
 
 
 # Helper functions for user preferences
@@ -1947,7 +1947,7 @@ def get_monthly_insights():
         elif avg_energy >= 6.0:
             insight_message = f"Great month! With an average daily energy of {avg_energy:.1f}, you're maintaining good focus patterns consistently."
         elif avg_energy >= 4.0:
-            insight_message = f"Your average daily energy this month was {avg_energy:.1f}. Consider reviewing your monthly patterns for optimization opportunities."
+            insight_message = f"Your average daily energy this month was {avg_energy:.1f}. Consider reviewing your monthly patterns for optimisation opportunities."
         else:
             insight_message = f"This month's average daily energy was {avg_energy:.1f}. You might benefit from identifying patterns and addressing factors affecting your energy."
         

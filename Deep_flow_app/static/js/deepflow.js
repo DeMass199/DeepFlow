@@ -26,6 +26,11 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     window.showEnergyCheckinModal = function(timerId, stage) {
+        // Stop any timer flashing effect when modal is opened
+        if (window.stopTimerFlashing) {
+            window.stopTimerFlashing(timerId);
+        }
+        
         // First check if rate limit has been reached
         if (window.energyCheckinRateLimit && !window.energyCheckinRateLimit.isAllowed) {
             console.log('Energy check-in blocked: Daily rate limit reached, skipping to timer action');
@@ -147,6 +152,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Functions to start/stop timers directly without energy check-in
 function startTimerDirectly(timerId) {
+    // Stop any timer flashing effect when timer is restarted
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
+    
     fetch(`/start_timer/${timerId}`, {
         method: 'POST',
         headers: {
@@ -168,6 +178,11 @@ function startTimerDirectly(timerId) {
 }
 
 function stopTimerDirectly(timerId) {
+    // Stop any timer flashing effect when timer is stopped
+    if (window.stopTimerFlashing) {
+        window.stopTimerFlashing(timerId);
+    }
+    
     fetch(`/stop_timer/${timerId}`, {
         method: 'POST',
         headers: {
