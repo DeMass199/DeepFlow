@@ -1,7 +1,3 @@
-# Project Title
-
-A brief description of what this project does and who it's for
-
 # 🧠 DeepFlow – ADHD-Focused Timer Application
 
 **DeepFlow** is a comprehensive focus timer application designed specifically for users with ADHD. It features:
