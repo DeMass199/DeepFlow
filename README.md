@@ -34,3 +34,7 @@ View weekly and monthly insights on your dashboard.
 Manage intrusive thoughts and to-do items with the Flow Shelf.
 
 Adjust personal settings and export your data when needed.
+
+## 👤 Author
+DeMass199
+GitHub: github.com/DeMass199
